@@ -1,18 +1,114 @@
 #include "GPSHandler.hpp"
 
-GPSHandler::GPSHandler(string rnx_data_filename) {
-
+GPSHandler::GPSHandler(std::string rnx_filename) {
+    load_rnx_data(rnx_filename);
 }
 
-GPSHandler::load_rnx_data(string rnx_data_filename) {
+void GPSHandler::load_rnx_data(std::string rnx_filename) {
+    std::ifstream rnx_file;
+    rnx_file.open(rnx_filename, std::ios::in);
 
+    std::string line;
+
+    unsigned skiprows = 8;
+    for (unsigned i = 0; i < skiprows; ++i) {
+        std::getline(rnx_file, line);
+    }
+
+    while (std::getline(rnx_file, line)) {
+    
+        unsigned prn_id = std::stoi(line.substr(0, 2));
+        double a_f0 = std::stod(line.substr(22, 41));
+        double a_f1 = std::stod(line.substr(41, 60));
+        double a_f2 = std::stod(line.substr(60, 79));
+
+        std::getline(rnx_file, line);
+
+        double C_rs = std::stod(line.substr(22, 41));
+        double delta_n = std::stod(line.substr(41, 60));
+        double M_0 = std::stod(line.substr(60, 79));
+
+        std::getline(rnx_file, line);
+
+        double C_uc = std::stod(line.substr(3, 22));
+        double e = std::stod(line.substr(22, 41));
+        double C_us = std::stod(line.substr(41, 60));
+        double A_sqrt = std::stod(line.substr(60, 79));
+
+        std::getline(rnx_file, line);
+
+        unsigned t_oe = std::stod(line.substr(3, 22));
+        double C_ic = std::stod(line.substr(22, 41));
+        double Omega_0 = std::stod(line.substr(41, 60));
+        double C_is = std::stod(line.substr(60, 79));
+    
+        std::getline(rnx_file, line);
+
+        double i_0 = std::stod(line.substr(3, 22));
+        double C_rc = std::stod(line.substr(22, 41));
+        double omega = std::stod(line.substr(41, 60));
+        double Omega_dot = std::stod(line.substr(60, 79));
+
+        std::getline(rnx_file, line);
+
+        double IDOT = std::stod(line.substr(3, 22));
+
+        std::getline(rnx_file, line);
+        std::getline(rnx_file, line);
+
+        ephemeris[prn_id].push_back(t_oe);
+
+        std::pair key = std::make_pair(prn_id, t_oe);
+        map_a_f0[key] = a_f0;
+        map_a_f1[key] = a_f1;
+        map_a_f2[key] = a_f2;
+        map_M_0[key] = M_0;
+        map_delta_n[key] = delta_n;
+        map_e[key] = e;
+        map_A_sqrt[key] = A_sqrt;
+        map_Omega_0[key] = Omega_0;
+        map_i_0[key] = i_0;
+        map_omega[key] = omega;
+        map_Omega_dot[key] = Omega_dot;
+        map_IDOT[key] = IDOT;
+        map_C_uc[key] = C_uc;
+        map_C_us[key] = C_us;
+        map_C_rc[key] = C_rc;
+        map_C_rs[key] = C_rs;
+        map_C_ic[key] = C_ic;
+        map_C_is[key] = C_is;
+    }
+
+    rnx_file.close();
 }
 
-std::vector<double> GPSHandler::interp_state(unsigned prn_id, unsigned gps_time) {
 
-    unsigned timestamp = 0;
-    std::pair key = std::make_pair(prn_id, timestamp);
+unsigned GPSHandler::get_ephemeris(unsigned prn_id, double t_sv) {
+    // Сделать бинарный поиск
 
+    double delta_min = 1e10;
+    unsigned t_oe = 0;
+    for (unsigned i = 0; i < ephemeris[prn_id].size(); i++) {
+        double delta = std::abs(t_sv - ephemeris[prn_id][i]);
+        if (delta < delta_min) {
+            delta_min = delta;
+            t_oe = ephemeris[prn_id][i];
+        }
+    }
+
+    return t_oe;
+}
+
+std::vector<double> GPSHandler::interp_state(unsigned prn_id, double gps_time) {
+    unsigned week_start = 732456018;
+    double t_sv = gps_time - week_start;
+
+    unsigned t_oe = get_ephemeris(prn_id, t_sv);
+    std::pair key = std::make_pair(prn_id, t_oe);
+
+    double a_f0 = map_a_f0[key];
+    double a_f1 = map_a_f1[key];
+    double a_f2 = map_a_f2[key];
     double M_0 = map_M_0[key];
     double delta_n = map_delta_n[key];
     double e = map_e[key];
@@ -28,11 +124,6 @@ std::vector<double> GPSHandler::interp_state(unsigned prn_id, unsigned gps_time)
     double C_rs = map_C_rs[key];
     double C_ic = map_C_ic[key];
     double C_is = map_C_is[key];
-    double t_oe = map_t_oe[key];
-
-    double a_f0 = map_a_f0[key];
-    double a_f1 = map_a_f1[key];
-    double a_f2 = map_a_f2[key];
 
     double t = t_sv - t_oe;
     double delta_t_sv = a_f0 + a_f1 * t + a_f2 * t * t;
@@ -47,7 +138,7 @@ std::vector<double> GPSHandler::interp_state(unsigned prn_id, unsigned gps_time)
         E += (M - E + e * sin(E)) / (1 - e * cos(E));
     }
 
-    double nu = 2 * arctan(sqrt((1 + e) / (1 - e)) * tan(E / 2));
+    double nu = 2 * atan(sqrt((1 + e) / (1 - e)) * tan(E / 2));
     double Phi = nu + omega;
 
     double delta_u = C_us * sin(2 * Phi) + C_uc * cos(2 * Phi);
@@ -72,20 +163,20 @@ std::vector<double> GPSHandler::interp_state(unsigned prn_id, unsigned gps_time)
     double u_dot = nu_dot + 2 * nu_dot * (C_us * cos(2 * Phi) - C_uc * sin(2 * Phi));
     double r_dot = e * A * E_dot * sin(E) + 2 * nu_dot * (C_rs * cos(2 * Phi) - C_rc * sin(2 * Phi));
 
-    double Omega_dot = Omega_dot - Omega_e_dot
+    double Omega_k_dot = Omega_dot - Omega_e_dot;
     
     double x_prime_dot = r_dot * cos(u) - r * u_dot * sin(u);
     double y_prime_dot = r_dot * sin(u) + r * u_dot * cos(u);
 
-    double vx = -x_prime * Omega_dot * sin(Omega) + x_prime_dot * cos(Omega) - y_prime_dot * sin(Omega) * cos(i) - 
-                y_prime * (Omega_dot * cos(Omega) * cos(i) - i_dot * sin(Omega) * sin(i));
-    double vy = x_prime * Omega_dot * cos(Omega) + x_prime_dot * sin(Omega) + y_prime_dot * cos(Omega) * cos(i) - 
-                y_prime * (Omega_dot * sin(Omega) * cos(i) + i_dot * cos(Omega) * sin(i));
+    double vx = -x_prime * Omega_k_dot * sin(Omega) + x_prime_dot * cos(Omega) - y_prime_dot * sin(Omega) * cos(i) - 
+                y_prime * (Omega_k_dot * cos(Omega) * cos(i) - i_dot * sin(Omega) * sin(i));
+    double vy = x_prime * Omega_k_dot * cos(Omega) + x_prime_dot * sin(Omega) + y_prime_dot * cos(Omega) * cos(i) - 
+                y_prime * (Omega_k_dot * sin(Omega) * cos(i) + i_dot * cos(Omega) * sin(i));
     double vz = y_prime_dot * sin(i) + y_prime * i_dot * cos(i);
 
     double delta_t_r = F * e * A_sqrt * sin(E);
-    t += delta_t_r;
+    delta_t_sv += delta_t_r;
 
-    return {t, x, y, z, vx, vy, vz};
+    return {delta_t_sv, x, y, z, vx, vy, vz};
 }
 
