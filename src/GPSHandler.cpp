@@ -56,27 +56,28 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) {
         std::getline(rnx_file, line);
         std::getline(rnx_file, line);
 
-        ephemeris[prn_id].push_back(t_oe);
+        ephs_ts[prn_id].push_back(t_oe);
 
-        std::pair key = std::make_pair(prn_id, t_oe);
-        map_a_f0[key] = a_f0;
-        map_a_f1[key] = a_f1;
-        map_a_f2[key] = a_f2;
-        map_M_0[key] = M_0;
-        map_delta_n[key] = delta_n;
-        map_e[key] = e;
-        map_A_sqrt[key] = A_sqrt;
-        map_Omega_0[key] = Omega_0;
-        map_i_0[key] = i_0;
-        map_omega[key] = omega;
-        map_Omega_dot[key] = Omega_dot;
-        map_IDOT[key] = IDOT;
-        map_C_uc[key] = C_uc;
-        map_C_us[key] = C_us;
-        map_C_rc[key] = C_rc;
-        map_C_rs[key] = C_rs;
-        map_C_ic[key] = C_ic;
-        map_C_is[key] = C_is;
+        std::pair key = {prn_id, t_oe};
+        ephs[key].a_f0 = a_f0;
+        ephs[key].a_f0 = a_f0;
+        ephs[key].a_f1 = a_f1;
+        ephs[key].a_f2 = a_f2;
+        ephs[key].M_0 = M_0;
+        ephs[key].delta_n = delta_n;
+        ephs[key].e = e;
+        ephs[key].A_sqrt = A_sqrt;
+        ephs[key].Omega_0 = Omega_0;
+        ephs[key].i_0 = i_0;
+        ephs[key].omega = omega;
+        ephs[key].Omega_dot = Omega_dot;
+        ephs[key].IDOT = IDOT;
+        ephs[key].C_uc = C_uc;
+        ephs[key].C_us = C_us;
+        ephs[key].C_rc = C_rc;
+        ephs[key].C_rs = C_rs;
+        ephs[key].C_ic = C_ic;
+        ephs[key].C_is = C_is;
     }
 
     rnx_file.close();
@@ -88,48 +89,48 @@ unsigned GPSHandler::get_ephemeris(unsigned prn_id, double t_sv) {
 
     double delta_min = 1e10;
     unsigned t_oe = 0;
-    for (unsigned i = 0; i < ephemeris[prn_id].size(); i++) {
-        double delta = std::abs(t_sv - ephemeris[prn_id][i]);
+    for (unsigned i = 0; i < ephs_ts[prn_id].size(); i++) {
+        double delta = std::abs(t_sv - ephs_ts[prn_id][i]);
         if (delta < delta_min) {
             delta_min = delta;
-            t_oe = ephemeris[prn_id][i];
+            t_oe = ephs_ts[prn_id][i];
         }
     }
 
     return t_oe;
 }
 
-std::vector<double> GPSHandler::interp_state(unsigned prn_id, double gps_time) {
+std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
     unsigned week_start = 732456018;
     double t_sv = gps_time - week_start;
 
     unsigned t_oe = get_ephemeris(prn_id, t_sv);
-    std::pair key = std::make_pair(prn_id, t_oe);
+    std::pair key = {prn_id, t_oe};
 
-    double a_f0 = map_a_f0[key];
-    double a_f1 = map_a_f1[key];
-    double a_f2 = map_a_f2[key];
-    double M_0 = map_M_0[key];
-    double delta_n = map_delta_n[key];
-    double e = map_e[key];
-    double A_sqrt = map_A_sqrt[key];
-    double Omega_0 = map_Omega_0[key];
-    double i_0 = map_i_0[key];
-    double omega = map_omega[key];
-    double Omega_dot = map_Omega_dot[key];
-    double IDOT = map_IDOT[key];
-    double C_uc = map_C_uc[key];
-    double C_us = map_C_us[key];
-    double C_rc = map_C_rc[key];
-    double C_rs = map_C_rs[key];
-    double C_ic = map_C_ic[key];
-    double C_is = map_C_is[key];
+    double a_f0 = ephs[key].a_f0;
+    double a_f1 = ephs[key].a_f1;
+    double a_f2 = ephs[key].a_f2;
+    double M_0 = ephs[key].M_0;
+    double delta_n = ephs[key].delta_n;
+    double e = ephs[key].e;
+    double A_sqrt = ephs[key].A_sqrt;
+    double Omega_0 = ephs[key].Omega_0;
+    double i_0 = ephs[key].i_0;
+    double omega = ephs[key].omega;
+    double Omega_dot = ephs[key].Omega_dot;
+    double IDOT = ephs[key].IDOT;
+    double C_uc = ephs[key].C_uc;
+    double C_us = ephs[key].C_us;
+    double C_rc = ephs[key].C_rc;
+    double C_rs = ephs[key].C_rs;
+    double C_ic = ephs[key].C_ic;
+    double C_is = ephs[key].C_is;
 
     double t = t_sv - t_oe;
     double delta_t_sv = a_f0 + a_f1 * t + a_f2 * t * t;
 
     double A = A_sqrt * A_sqrt;
-    double n_0 = sqrt(mu) / (A_sqrt * A_sqrt * A_sqrt);
+    double n_0 = mu_sqrt / (A_sqrt * A_sqrt * A_sqrt);
     double n = n_0 + delta_n;
     double M = M_0 + n * t;
 
