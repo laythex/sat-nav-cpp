@@ -1,6 +1,6 @@
 #include "NavigationalProblem.hpp"
 
-NavigationalProblem::NavigationalProblem(std::string gnv_filename, std::string gps_filename) {
+NavigationalProblem::NavigationalProblem(std::string gnv_filename, std::string gps_filename, const GPSHandler& handler) : handler(handler) {
     load_gnv_data(gnv_filename);
     load_gps_data(gps_filename);
 }
@@ -95,8 +95,7 @@ void NavigationalProblem::load_gps_data(std::string gps_filename) {
         double L2_range = std::stod(line);
 
         ts.insert(gps_time);
-        std::pair key = {prn_id, gps_time};
-        pr[key] = {L1_range, L2_range};
+        pr[{prn_id, gps_time}] = {L1_range, L2_range};
     }
 
     gps_file.close();
@@ -104,11 +103,61 @@ void NavigationalProblem::load_gps_data(std::string gps_filename) {
 
 void NavigationalProblem::solve(unsigned ti, unsigned tf) {
 
-    std::set<unsigned>::iterator iti = ts.lower_bound(ti);
-    std::set<unsigned>::iterator itf = ts.upper_bound(tf);
-    for (auto it = iti; it != itf; it++) {
+    auto it_i = ts.lower_bound(ti);
+    auto it_f = ts.upper_bound(tf);
+    for (auto it = it_i; it != it_f; it++) {
         unsigned t = *it;
 
-        get_pr_and_gps_pos(t);
+        std::vector<double> pseudoranges;
+        std::map<unsigned, std::vector<double>> gps_positions;
+
+        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+            auto it = pr.find({prn_id, t});
+            if (it == pr.end()) continue;
+
+            std::vector<double> measurments = it->second;
+            double L1_range = measurments[0];
+            double L2_range = measurments[1];
+
+            double gps_time = t;
+            double pseudorange = C1 * L1_range + C2 * L2_range;
+
+            //     Эффект                     t       t * v    t * c   
+            // (1) Задержка распространения - 80 мс - 240 км -  ---   
+            // (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км 
+            // (3) Релятивизм               - 1 мкс - 3 мм   - 300 м  
+
+            // При расчете ошибки часов учитываем только (1)
+            // При расчете эфемерид учитываем (1), (2) 
+            // При корректировке псевдодальности учитываем (1), (2), (3)
+
+            double propagation_delay = pseudorange / c;
+            gps_time -= propagation_delay;
+
+            double clock_error = handler.get_clock_error(prn_id, gps_time);
+            gps_time -= clock_error;
+
+            std::vector<double> state = handler.get_state(prn_id, gps_time);
+
+            double relativity_error = state[6];
+            gps_time -= relativity_error;
+
+            pseudorange += (clock_error + relativity_error) * c;
+
+            pseudoranges[prn_id] = pseudorange;
+            gps_positions[prn_id] = std::vector<double>(state.begin(), state.begin() + 3);
+        }
+
+        iterative(pseudoranges, gps_positions);
     }
+}
+
+void NavigationalProblem::iterative(const std::vector<double>& PR, const std::map<unsigned, std::vector<double>>& X) {
+    
+    std::vector<double> x0 = {0, 0, 0};
+
+    // while (true) {
+
+
+    // }
 }

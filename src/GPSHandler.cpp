@@ -84,7 +84,7 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) {
 }
 
 
-unsigned GPSHandler::get_ephemeris(unsigned prn_id, double t_sv) {
+unsigned GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
     // Сделать бинарный поиск
 
     double delta_min = 1e10;
@@ -100,16 +100,30 @@ unsigned GPSHandler::get_ephemeris(unsigned prn_id, double t_sv) {
     return t_oe;
 }
 
-std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
+double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
     unsigned week_start = 732456018;
     double t_sv = gps_time - week_start;
 
-    unsigned t_oe = get_ephemeris(prn_id, t_sv);
+    unsigned t_oe = select_ephemeris(prn_id, t_sv);
     std::pair key = {prn_id, t_oe};
 
     double a_f0 = ephs[key].a_f0;
     double a_f1 = ephs[key].a_f1;
     double a_f2 = ephs[key].a_f2;
+
+    double t = t_sv - t_oe;
+    double delta_t_sv = a_f0 + a_f1 * t + a_f2 * t * t;
+
+    return delta_t_sv;
+}
+
+std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
+    unsigned week_start = 732456018;
+    double t_sv = gps_time - week_start;
+
+    unsigned t_oe = select_ephemeris(prn_id, t_sv);
+    std::pair key = {prn_id, t_oe};
+
     double M_0 = ephs[key].M_0;
     double delta_n = ephs[key].delta_n;
     double e = ephs[key].e;
@@ -127,7 +141,6 @@ std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
     double C_is = ephs[key].C_is;
 
     double t = t_sv - t_oe;
-    double delta_t_sv = a_f0 + a_f1 * t + a_f2 * t * t;
 
     double A = A_sqrt * A_sqrt;
     double n_0 = mu_sqrt / (A_sqrt * A_sqrt * A_sqrt);
@@ -176,8 +189,7 @@ std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
     double vz = y_prime_dot * sin(i) + y_prime * i_dot * cos(i);
 
     double delta_t_r = F * e * A_sqrt * sin(E);
-    delta_t_sv += delta_t_r;
 
-    return {delta_t_sv, x, y, z, vx, vy, vz};
+    return {x, y, z, vx, vy, vz, delta_t_r};
 }
 
