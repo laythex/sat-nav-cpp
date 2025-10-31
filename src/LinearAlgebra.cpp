@@ -222,3 +222,43 @@ double dot(const std::vector<double>& a, const std::vector<double>& b) {
 double abs(const std::vector<double>& a) {
     return sqrt(dot(a, a));
 }
+
+Matrix identity(size_t s) {
+    Matrix res(s, s);
+
+    for (size_t i = 0; i < s; i++) {
+        res.at(i, i) = 1.0;
+    }
+
+    return res;
+}
+
+Matrix rotation(double angle, char axis) {
+    Matrix res = identity(3);
+
+    double c = cos(angle);
+    double s = sin(angle);
+
+    switch(axis) {
+        case 'x':
+            res.at(1, 1) = c;
+            res.at(2, 2) = c;
+            res.at(1, 2) = -s;
+            res.at(2, 1) = s;
+            break;
+        case 'y':
+            res.at(0, 0) = c;
+            res.at(2, 2) = c;
+            res.at(0, 2) = s;
+            res.at(2, 0) = -s;
+            break;
+        case 'z':
+            res.at(0, 0) = c;
+            res.at(1, 1) = c;
+            res.at(0, 1) = -s;
+            res.at(1, 0) = s;
+            break;
+    }
+
+    return res;
+}

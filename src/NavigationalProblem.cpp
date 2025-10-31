@@ -95,7 +95,7 @@ void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
         double L2_range = std::stod(line);
 
         ts.insert(gps_time);
-        pr[{prn_id, gps_time}] = {L1_range, L2_range};
+        raw[{prn_id, gps_time}] = {L1_range, L2_range};
     }
 
     gps_file.close();
@@ -106,65 +106,80 @@ void NavigationalProblem::solve(unsigned ti, unsigned tf) {
     std::set<unsigned> ts_range;
     auto it_i = (ti > 0) ? ts.lower_bound(ti) : ts.begin();
     auto it_f = (tf > 0) ? ts.upper_bound(tf) : ts.end();
-    for (auto it = it_i; it != it_f; it++) {
-        ts_range.insert(*it);
+    for (auto it_ts = it_i; it_ts != it_f; it_ts++) {
+        ts_range.insert(*it_ts);
     }
-
     ts = ts_range;
 
-    for (auto it = ts.begin(); it != ts.end(); it++) {
-
-        unsigned t = *it;
+    for (auto it_ts = ts.begin(); it_ts != ts.end(); it_ts++) {
+        unsigned t = *it_ts;
 
         std::vector<double> pseudoranges;
         std::vector<std::vector<double>> gps_positions;
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
-            auto it = pr.find({prn_id, t});
-            if (it == pr.end()) continue;
-
-            std::vector<double> measurments = it->second;
-            double L1_range = measurments[0];
-            double L2_range = measurments[1];
-
-            double gps_time = t;
-            double pseudorange = C1 * L1_range + C2 * L2_range;
-
+            auto it_raw = raw.find({prn_id, t});
+            if (it_raw == raw.end()) continue;    
             
-            /*  Эффект                     t       t * v    t * c   
-            (1) Задержка распространения - 80 мс - 240 км -  ---   
-            (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км 
-            (3) Релятивизм               - 1 мкс - 3 мм   - 300 м  
+            std::vector<double> measurments = it_raw->second;
+            std::vector<double> corrected = correct(prn_id, t, measurments);
+            
+            double pseudorange = corrected[3];
+            std::vector<double> gps_pos(corrected.begin(), corrected.begin() + 3);
 
-            При расчете ошибки часов учитываем только (1)
-            При расчете эфемерид учитываем (1), (2) 
-            При корректировке псевдодальности учитываем (1), (2), (3) */
-
-            double propagation_delay = pseudorange / c;
-            gps_time -= propagation_delay;
-
-            double clock_error = handler.get_clock_error(prn_id, gps_time);
-            gps_time -= clock_error;
-
-            std::vector<double> state = handler.get_state(prn_id, gps_time);
-            std::vector<double> gps_pos(state.begin(), state.begin() + 3);
-
-            double relativity_error = state[6];
-
-            pseudorange += (clock_error + relativity_error) * c;
-    
             pseudoranges.push_back(pseudorange);
             gps_positions.push_back(gps_pos);
+            
+            err_prs[{prn_id, t}] = std::abs(pseudorange - abs(gps_pos - pos[t]));
         }
 
         try {
-            sol[t] = iterative(pseudoranges, gps_positions);
-        } catch (const std::runtime_error& re) {
+            err_sol[t] = iterative(pseudoranges, gps_positions) - pos[t];
+        } catch (const std::runtime_error&) {
             ts.erase(t);
-            it--;
+            it_ts--;
         }
 
     }
+}
+
+std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_time, const std::vector<double>& measurments) {
+    double L1_range = measurments[0];
+    double L2_range = measurments[1];
+
+    double iono_free = C1 * L1_range + C2 * L2_range;
+    
+    /*  Эффект                     t       t * v    t * c   
+    (1) Задержка распространения - 80 мс - 240 км -  ---   
+    (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км 
+    (3) Релятивизм               - 1 мкс - 3 мм   - 300 м  
+
+    При расчете ошибки часов учитываем только (1)
+    При расчете эфемерид учитываем (1), (2) 
+    При корректировке псевдодальности учитываем (1), (2), (3) */
+
+    double delay = 0;
+
+    double propagation_delay = iono_free / c;
+    delay += propagation_delay;
+
+    double clock_error = handler.get_clock_error(prn_id, gps_time - delay);
+    delay += clock_error;
+
+    std::vector<double> state = handler.get_state(prn_id, gps_time - delay);
+
+    double relativity_error = state[6];
+    delay += relativity_error;
+
+    double pseudorange = delay * c;
+    std::vector<double> gps_pos(state.begin(), state.begin() + 3);
+
+    double phi = delay * earth_rotation_rate;
+    Matrix rot = rotation(-phi, 'z');
+    gps_pos = rot * gps_pos;
+
+    std::vector<double> corrected = {gps_pos[0], gps_pos[1], gps_pos[2], pseudorange};
+    return corrected;
 }
 
 std::vector<double> NavigationalProblem::iterative(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const {
@@ -217,12 +232,36 @@ void NavigationalProblem::errors_norm(const std::string& err_filename) {
     std::ofstream err_file;
     err_file.open(err_filename, std::fstream::out);
 
-    err_file << "Модуль ошибки" << std::endl;
-    err_file << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    err_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
 
     for (const unsigned& t : ts) {
-        double error = abs(sol[t] - pos[t]);
+        double error = abs(err_sol[t]);
         err_file << t << '\t' << error << std::endl;
+    }
+
+    err_file.close();
+}
+
+void NavigationalProblem::errors_prs(const std::string& err_filename) {
+    std::ofstream err_file;
+    err_file.open(err_filename, std::fstream::out);
+
+    err_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+
+    for (const unsigned& t : ts) {
+        err_file << t << '\t';
+
+        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+            auto it = err_prs.find({prn_id, t});
+
+            if (it != err_prs.end()) {
+                err_file << err_prs[{prn_id, t}];
+            }
+
+            err_file << '\t';
+        }
+
+        err_file << '\n';
     }
 
     err_file.close();

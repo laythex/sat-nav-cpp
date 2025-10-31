@@ -2,20 +2,22 @@ import sys
 import pandas as pd
 import matplotlib.pyplot as plt
 
+sep = '\t'
+
 args = sys.argv
 
-data_path = '../results/' + args[1]
-plot_path = '../plots/' + args[2]
+data_path = f'../results/{args[1]}.txt'
+plot_path = f'../plots/{args[1]}.png'
 
-y_max = 75
+y_max = 30
 
 with open(data_path) as header:
-    title = header.readline()
+    title, x_label, y_label = header.readline().split(sep)
 
-data = pd.read_csv(data_path, sep='\t', skiprows=1)
-x_label, y_label = data.columns.tolist()
+data = pd.read_csv(data_path, sep=sep, skiprows=1)
 
-plt.plot(data[x_label], data[y_label])
+for i in range(1, data.shape[1]):
+    plt.plot(data.iloc[:, 0], data.iloc[:, i])
 
 plt.ylim(0, y_max)
 

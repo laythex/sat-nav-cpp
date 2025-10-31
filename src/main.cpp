@@ -13,6 +13,7 @@ int main() {
                                                       handler);
     problem.solve();
     problem.errors_norm("../results/errors-norm.txt");
+    problem.errors_prs("../results/errors-prs.txt");
 
     return 0;
 }
