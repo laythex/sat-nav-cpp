@@ -3,17 +3,14 @@
 #include "LinearAlgebra.hpp"
 
 int main() {
-    unsigned ti = 732801600 + 3600;
-    unsigned tf = 732801600 + 3600 + 5400;
 
-    std::cout << std::setprecision(15);
-    GPSHandler handler = GPSHandler("../data/brdc0820.23n");
-    NavigationalProblem problem = NavigationalProblem("../data/GNV1B_2023-03-23_C_04.txt", 
-                                                      "../data/GPS1B_2023-03-23_C_04.txt", 
-                                                      handler);
+    GPSHandler handler = GPSHandler("brdc0820.23n");
+    NavigationalProblem problem = NavigationalProblem("GNV1B_2023-03-23_C_04.txt", "GPS1B_2023-03-23_C_04.txt", handler);
+
     problem.solve();
-    problem.errors_norm("../results/errors-norm.txt");
-    problem.errors_prs("../results/errors-prs.txt");
+    problem.errors_norm();
+    problem.errors_prs();
+    problem.errors_rel();
 
     return 0;
 }

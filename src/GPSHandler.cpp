@@ -6,7 +6,7 @@ GPSHandler::GPSHandler(std::string rnx_filename) {
 
 void GPSHandler::load_rnx_data(std::string rnx_filename) {
     std::ifstream rnx_file;
-    rnx_file.open(rnx_filename, std::ios::in);
+    rnx_file.open("../data/" + rnx_filename, std::ios::in);
 
     std::string line;
 
@@ -85,19 +85,24 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) {
 
 
 unsigned GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
-    // Сделать бинарный поиск
+    unsigned n = ephs_ts[prn_id].size();
 
-    double delta_min = 1e10;
-    unsigned t_oe = 0;
-    for (unsigned i = 0; i < ephs_ts[prn_id].size(); i++) {
-        double delta = std::abs(t_sv - ephs_ts[prn_id][i]);
-        if (delta < delta_min) {
-            delta_min = delta;
-            t_oe = ephs_ts[prn_id][i];
+    unsigned lo = 0, hi = n, mid;
+    while (lo < hi) {
+        mid = lo + (hi - lo) / 2;
+        if (ephs_ts[prn_id][mid] < t_sv) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
         }
     }
 
-    return t_oe;
+    if (lo == 0) return ephs_ts[prn_id][0];
+    if (lo == n) return ephs_ts[prn_id].back();
+
+    unsigned left = ephs_ts[prn_id][lo - 1];
+    unsigned right = ephs_ts[prn_id][lo];
+    return (t_sv - left < right - t_sv) ? left : right;
 }
 
 double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {

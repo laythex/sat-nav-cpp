@@ -159,6 +159,16 @@ Matrix Matrix::inverse() const {
     return res;
 }
 
+double Matrix::trace() const {
+    double res = 0;
+
+    for (size_t i = 0; i < rows; i++) {
+        res += operator()(i, i);
+    }
+
+    return res;
+}
+
 std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
     for (size_t i = 0; i < matrix.get_rows(); i++) {
         for (size_t j = 0; j < matrix.get_cols(); j++) {

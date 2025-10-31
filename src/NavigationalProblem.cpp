@@ -7,7 +7,7 @@ NavigationalProblem::NavigationalProblem(const std::string& gnv_filename, const 
 
 void NavigationalProblem::load_gnv_data(const std::string& gnv_filename) {
     std::ifstream gnv_file;
-    gnv_file.open(gnv_filename, std::ios::in);
+    gnv_file.open("../data/" + gnv_filename, std::ios::in);
 
     std::string line;
 
@@ -52,7 +52,7 @@ void NavigationalProblem::load_gnv_data(const std::string& gnv_filename) {
 
 void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
     std::ifstream gps_file;
-    gps_file.open(gps_filename, std::ios::in);
+    gps_file.open("../data/" + gps_filename, std::ios::in);
 
     std::string line;
 
@@ -101,18 +101,18 @@ void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
     gps_file.close();
 }
 
-void NavigationalProblem::solve(unsigned ti, unsigned tf) {
+void NavigationalProblem::solve(unsigned ti, unsigned tf, bool is_rel) {
 
-    std::set<unsigned> ts_range;
-    auto it_i = (ti > 0) ? ts.lower_bound(ti) : ts.begin();
-    auto it_f = (tf > 0) ? ts.upper_bound(tf) : ts.end();
-    for (auto it_ts = it_i; it_ts != it_f; it_ts++) {
-        ts_range.insert(*it_ts);
-    }
-    ts = ts_range;
-
-    for (auto it_ts = ts.begin(); it_ts != ts.end(); it_ts++) {
+    auto it_ts = ts.begin();
+    while (it_ts != ts.end()) {
         unsigned t = *it_ts;
+
+        if (ti > 0 || tf > 0) {
+            if (t < ti || t >= tf) {
+                it_ts = ts.erase(it_ts);
+                continue;
+            }
+        }
 
         std::vector<double> pseudoranges;
         std::vector<std::vector<double>> gps_positions;
@@ -122,7 +122,7 @@ void NavigationalProblem::solve(unsigned ti, unsigned tf) {
             if (it_raw == raw.end()) continue;    
             
             std::vector<double> measurments = it_raw->second;
-            std::vector<double> corrected = correct(prn_id, t, measurments);
+            std::vector<double> corrected = correct(prn_id, t, measurments, is_rel);
             
             double pseudorange = corrected[3];
             std::vector<double> gps_pos(corrected.begin(), corrected.begin() + 3);
@@ -136,23 +136,24 @@ void NavigationalProblem::solve(unsigned ti, unsigned tf) {
         try {
             err_sol[t] = iterative(pseudoranges, gps_positions) - pos[t];
         } catch (const std::runtime_error&) {
-            ts.erase(t);
-            it_ts--;
+            it_ts = ts.erase(it_ts);
+            continue;
         }
 
+        it_ts++;
     }
 }
 
-std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_time, const std::vector<double>& measurments) {
+std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_time, const std::vector<double>& measurments, bool is_rel) {
     double L1_range = measurments[0];
     double L2_range = measurments[1];
 
     double iono_free = C1 * L1_range + C2 * L2_range;
     
     /*  Эффект                     t       t * v    t * c   
-    (1) Задержка распространения - 80 мс - 240 км -  ---   
-    (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км 
-    (3) Релятивизм               - 1 мкс - 3 мм   - 300 м  
+    (1) Задержка распространения - 80 мс - 240 км -  ---
+    (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км
+    (3) Релятивизм               - 20 нс - 60 мкм - 6 м
 
     При расчете ошибки часов учитываем только (1)
     При расчете эфемерид учитываем (1), (2) 
@@ -168,8 +169,10 @@ std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_t
 
     std::vector<double> state = handler.get_state(prn_id, gps_time - delay);
 
-    double relativity_error = state[6];
-    delay += relativity_error;
+    if (is_rel) {
+        double relativity_error = state[6];
+        delay += relativity_error;
+    }
 
     double pseudorange = delay * c;
     std::vector<double> gps_pos(state.begin(), state.begin() + 3);
@@ -186,37 +189,38 @@ std::vector<double> NavigationalProblem::iterative(const std::vector<double>& ps
 
     std::vector<double> x0 = {0.0, 0.0, 0.0};
     double c_tau = 0.0;
-    double delta, eps = 1.0;
+    double eps = 1.0;
     
     unsigned n = pseudoranges.size();
 
     std::vector<double> U(n);
     Matrix B(n, 4, 1.0);
-    std::vector<double> dX(4);
-    std::vector<double> dX_X(3);
-    double dX_c_tau;
-
-    std::vector<double> DX(n);
-    double D;
 
     while (true) {
         
         for (unsigned i = 0; i < n; i++) {
-            DX = gps_positions[i] - x0;
-            D = abs(DX);
+            std::vector<double> DX = gps_positions[i] - x0;
+            double D = abs(DX);
 
             U[i] = pseudoranges[i] - D;
             for (unsigned j = 0; j < 3; j++) {
                 B.at(i, j) = DX[j] / D;
             }
         }
+        
+        Matrix B1 = (B.transpose() * B).inverse();
 
-        dX = (B.transpose() * B).inverse() * B.transpose() * U * (-1.0);
+        double GDOP = sqrt(B1.trace());
+        if (GDOP > GDOP0) {
+            throw std::runtime_error("GDOP is too high");
+        }
 
-        dX_X = std::vector<double>(dX.begin(), dX.begin() + 3);
-        dX_c_tau = dX[3];
+        std::vector<double> dX = B1 * B.transpose() * U * (-1.0);
+
+        std::vector<double> dX_X = std::vector<double>(dX.begin(), dX.begin() + 3);
+        double dX_c_tau = dX[3];
     
-        delta = abs(dX_X) + std::abs(dX_c_tau - c_tau);
+        double delta = abs(dX_X) + std::abs(dX_c_tau - c_tau);
         if (delta < eps) {
             break;
         }
@@ -228,28 +232,30 @@ std::vector<double> NavigationalProblem::iterative(const std::vector<double>& ps
     return x0;
 }
 
-void NavigationalProblem::errors_norm(const std::string& err_filename) {
+void NavigationalProblem::errors_norm() {
     std::ofstream err_file;
-    err_file.open(err_filename, std::fstream::out);
+    err_file.open("../results/errors-norm.csv", std::fstream::out);
 
     err_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    err_file << 0 << '\t' << 30 << std::endl;
 
     for (const unsigned& t : ts) {
         double error = abs(err_sol[t]);
-        err_file << t << '\t' << error << std::endl;
+        err_file << t << ',' << error << std::endl;
     }
 
     err_file.close();
 }
 
-void NavigationalProblem::errors_prs(const std::string& err_filename) {
+void NavigationalProblem::errors_prs() {
     std::ofstream err_file;
-    err_file.open(err_filename, std::fstream::out);
+    err_file.open("../results/errors-prs.csv", std::fstream::out);
 
     err_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    err_file << 0 << '\t' << 30 << std::endl;
 
     for (const unsigned& t : ts) {
-        err_file << t << '\t';
+        err_file << t << ',';
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
             auto it = err_prs.find({prn_id, t});
@@ -258,10 +264,29 @@ void NavigationalProblem::errors_prs(const std::string& err_filename) {
                 err_file << err_prs[{prn_id, t}];
             }
 
-            err_file << '\t';
+            err_file << ',';
         }
 
         err_file << '\n';
+    }
+
+    err_file.close();
+}
+
+void NavigationalProblem::errors_rel() {
+    std::ofstream err_file;
+    err_file.open("../results/errors-rel.csv", std::fstream::out);
+
+    err_file << "Вклад релятивистской поправки в решение" << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    err_file << -20 << '\t' << 50 << std::endl;
+
+    solve(0, 0, false);
+    std::map<unsigned, std::vector<double>> err_no_rel = err_sol;
+    solve();
+
+    for (const unsigned& t : ts) {
+        double error = abs(err_no_rel[t]) - abs(err_sol[t]);
+        err_file << t << ',' << error << std::endl;
     }
 
     err_file.close();

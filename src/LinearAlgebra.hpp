@@ -25,6 +25,7 @@ public:
 
     Matrix transpose() const;
     Matrix inverse() const;
+    double trace() const;
 
 private:
     size_t rows, cols;
