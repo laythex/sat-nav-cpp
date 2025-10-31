@@ -5,6 +5,8 @@
 #include <vector>
 #include <map>
 
+#include <iostream>
+
 struct Ephemeris {
     double a_f0, a_f1, a_f2;
     double M_0, delta_n, e, A_sqrt, Omega_0, i_0, omega, Omega_dot, IDOT;

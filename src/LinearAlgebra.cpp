@@ -1,12 +1,12 @@
-#include "Matrix.hpp"
+#include "LinearAlgebra.hpp"
 
 Matrix::Matrix(std::vector<std::vector<double>> data) : data(data) {
     rows = data.size();
     cols = data[0].size();
 }
 
-Matrix::Matrix(size_t n, size_t m) : rows(n), cols(m) {
-    data = std::vector<std::vector<double>>(n, std::vector<double>(m, 0.0));
+Matrix::Matrix(size_t n, size_t m, double x) : rows(n), cols(m) {
+    data = std::vector<std::vector<double>>(n, std::vector<double>(m, x));
 }
 
 size_t Matrix::get_rows() const {
@@ -53,6 +53,18 @@ Matrix Matrix::operator*(double x) const {
     return res;
 }
 
+std::vector<double> Matrix::operator*(const std::vector<double>& a) const {
+    std::vector res(rows, 0.0);
+
+    for (size_t i = 0; i < rows; i++) {
+        for (size_t j = 0; j < cols; j++) {
+            res[i] += operator()(i, j) * a[j];
+        }
+    }
+
+    return res;
+}
+
 Matrix Matrix::operator*(const Matrix& other) const {
     Matrix res = Matrix(rows, other.cols);
 
@@ -68,7 +80,7 @@ Matrix Matrix::operator*(const Matrix& other) const {
 }
 
 Matrix Matrix::operator/(double x) const {
-    return (*this) * (1 / x);
+    return (*this) * (1.0 / x);
 }
 
 Matrix Matrix::transpose() const {
@@ -157,4 +169,56 @@ std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
     }
 
     return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const std::vector<double>& a) {
+    for (size_t i = 0; i < a.size(); i++) {
+        double x = abs(a[i]) > 1e-13 ? a[i] : 0;
+        os << x << " ";
+    }
+
+    return os;
+}
+
+
+std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) {
+    std::vector<double> res(a.size());
+
+    for (size_t i = 0; i < a.size(); i++) {
+        res[i] = a[i] + b[i];
+    }
+
+    return res;
+}
+
+std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) {
+    return a + b * (-1.0);
+}
+
+std::vector<double> operator*(const std::vector<double>& a, double x) {
+    std::vector<double> res(a.size());
+
+    for (size_t i = 0; i < a.size(); i++) {
+        res[i] = a[i] * x;
+    }
+
+    return res;
+}
+
+std::vector<double> operator/(const std::vector<double>& a, double x) {
+    return a * (1.0 / x);
+}
+
+double dot(const std::vector<double>& a, const std::vector<double>& b) {
+    double res = 0;
+
+    for (size_t i = 0; i < a.size(); i++) {
+        res += a[i] * b[i];
+    }
+
+    return res;
+}
+
+double abs(const std::vector<double>& a) {
+    return sqrt(dot(a, a));
 }

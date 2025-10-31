@@ -8,19 +8,20 @@
 #include <map>
 #include <set>
 
-#include "Matrix.hpp"
+#include "LinearAlgebra.hpp"
 #include "GPSHandler.hpp"
 
 class NavigationalProblem {
 
 public:
-    NavigationalProblem(std::string gnv_filename, std::string gps_filename, const GPSHandler& handler);
-    void solve(unsigned ti, unsigned tf);
+    NavigationalProblem(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
+    void solve(unsigned ti = 0, unsigned tf = 0);
+    void errors_norm(const std::string& err_filename);
 
 private:
-    void load_gnv_data(std::string gnv_filename);
-    void load_gps_data(std::string gps_filename);
-    void iterative(const std::vector<double>& PR, const std::map<unsigned, std::vector<double>>& X);
+    void load_gnv_data(const std::string& gnv_filename);
+    void load_gps_data(const std::string& gps_filename);
+    std::vector<double> iterative(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const;
 
     double c = 2.99792458e8;
     double C1 = 2.54572778016;
@@ -32,4 +33,5 @@ private:
     std::map<unsigned, std::vector<double>> vel;
     std::set<unsigned> ts;
     std::map<std::pair<unsigned, unsigned>, std::vector<double>> pr; // [prn_id, gps_time] - [L1_range, L2_range]
+    std::map<unsigned, std::vector<double>> sol;
 };

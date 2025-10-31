@@ -118,7 +118,7 @@ double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
 }
 
 std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
-    unsigned week_start = 732456018;
+    unsigned week_start = 732456000;
     double t_sv = gps_time - week_start;
 
     unsigned t_oe = select_ephemeris(prn_id, t_sv);
