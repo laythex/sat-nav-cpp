@@ -65,6 +65,7 @@ void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
         std::stringstream stream(line);
 
         std::getline(stream, line, ' ');
+
         unsigned gps_time = std::stoi(line);
     
         std::getline(stream, line, ' ');
@@ -72,8 +73,8 @@ void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
-
         std::getline(stream, line, ' ');
+
         unsigned prn_id = std::stoi(line);
 
         std::getline(stream, line, ' ');
@@ -83,16 +84,23 @@ void NavigationalProblem::load_gps_data(const std::string& gps_filename) {
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
+
+        unsigned qualfig = std::stoi(line);
+
+        std::getline(stream, line, ' ');
+        std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        std::getline(stream, line, ' ');
-        std::getline(stream, line, ' ');
         double L1_range = std::stod(line);
+
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
+
         double L2_range = std::stod(line);
+
+        if (qualfig > 0) continue;
 
         ts.insert(gps_time);
         raw[{prn_id, gps_time}] = {L1_range, L2_range};
@@ -134,7 +142,12 @@ void NavigationalProblem::solve(unsigned ti, unsigned tf, bool is_rel) {
         }
 
         try {
-            err_sol[t] = iterative(pseudoranges, gps_positions) - pos[t];
+            std::vector<double> sol = iterative(pseudoranges, gps_positions);
+            check_low_satellites(sol, gps_positions);
+
+            err_sol[t] = sol - pos[t];
+            number_of_sats[t] = pseudoranges.size();
+
         } catch (const std::runtime_error&) {
             it_ts = ts.erase(it_ts);
             continue;
@@ -145,10 +158,6 @@ void NavigationalProblem::solve(unsigned ti, unsigned tf, bool is_rel) {
 }
 
 std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_time, const std::vector<double>& measurments, bool is_rel) {
-    double L1_range = measurments[0];
-    double L2_range = measurments[1];
-
-    double iono_free = C1 * L1_range + C2 * L2_range;
     
     /*  Эффект                     t       t * v    t * c   
     (1) Задержка распространения - 80 мс - 240 км -  ---
@@ -159,30 +168,39 @@ std::vector<double> NavigationalProblem::correct(unsigned prn_id, unsigned gps_t
     При расчете эфемерид учитываем (1), (2) 
     При корректировке псевдодальности учитываем (1), (2), (3) */
 
-    double delay = 0;
+    std::vector<double> gps_pos;
+    std::vector<double> corrected_measurments(measurments.size());
 
-    double propagation_delay = iono_free / c;
-    delay += propagation_delay;
+    for (unsigned i = 0; i < measurments.size(); i++) {
 
-    double clock_error = handler.get_clock_error(prn_id, gps_time - delay);
-    delay += clock_error;
+        double delay = 0;
 
-    std::vector<double> state = handler.get_state(prn_id, gps_time - delay);
+        double propagation_delay = measurments[i] / c;
+        delay += propagation_delay;
 
-    if (is_rel) {
-        double relativity_error = state[6];
-        delay += relativity_error;
+        double clock_error = handler.get_clock_error(prn_id, gps_time - delay);
+        delay += clock_error;
+
+        std::vector<double> state = handler.get_state(prn_id, gps_time - delay);
+
+        if (is_rel) {
+            double relativity_error = state[6];
+            delay += relativity_error;
+        }
+
+        corrected_measurments[i] = delay * c;
+
+        if (i == 0) gps_pos = std::vector<double>(state.begin(), state.begin() + 3);
     }
 
-    double pseudorange = delay * c;
-    std::vector<double> gps_pos(state.begin(), state.begin() + 3);
-
-    double phi = delay * earth_rotation_rate;
+    double phi = corrected_measurments[0] / c * earth_rotation_rate;
     Matrix rot = rotation(-phi, 'z');
     gps_pos = rot * gps_pos;
 
-    std::vector<double> corrected = {gps_pos[0], gps_pos[1], gps_pos[2], pseudorange};
-    return corrected;
+    double pseudorange = corrected_measurments[0] * C1 + corrected_measurments[1] * C2;
+
+    std::vector<double> corrected_state = {gps_pos[0], gps_pos[1], gps_pos[2], pseudorange};
+    return corrected_state;
 }
 
 std::vector<double> NavigationalProblem::iterative(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const {
@@ -232,53 +250,66 @@ std::vector<double> NavigationalProblem::iterative(const std::vector<double>& ps
     return x0;
 }
 
-void NavigationalProblem::errors_norm() {
-    std::ofstream err_file;
-    err_file.open("../results/errors-norm.csv", std::fstream::out);
+void NavigationalProblem::check_low_satellites(const std::vector<double>& sol, const std::vector<std::vector<double>>& gps_positions) const {
+    std::vector<unsigned> low_satellites;
+    for (unsigned i = 0; i < gps_positions.size(); i++) {
+        std::vector<double> gps_rel = gps_positions[i] - sol;
+        double zenith_angle = angle(sol, gps_rel) * 180.0 * M_1_PI;
+        if (zenith_angle > 90.0 - mask_angle) {
+            std::cout << "Low satellite:\t" << 90.0 - zenith_angle << std::endl;
+            low_satellites.push_back(i);
+        }
+    }
+}
 
-    err_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    err_file << 0 << '\t' << 30 << std::endl;
+
+void NavigationalProblem::out_errors_norm() {
+    std::ofstream out_file;
+    out_file.open("../results/errors-norm.csv", std::fstream::out);
+
+    out_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    out_file << 0 << '\t' << 30 << std::endl;
 
     for (const unsigned& t : ts) {
         double error = abs(err_sol[t]);
-        err_file << t << ',' << error << std::endl;
+        out_file << t << ',' << error << std::endl;
     }
 
-    err_file.close();
+    out_file.close();
 }
 
-void NavigationalProblem::errors_prs() {
-    std::ofstream err_file;
-    err_file.open("../results/errors-prs.csv", std::fstream::out);
+void NavigationalProblem::out_errors_prs() {
+    std::ofstream out_file;
+    out_file.open("../results/errors-prs.csv", std::fstream::out);
 
-    err_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    err_file << 0 << '\t' << 30 << std::endl;
+    out_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    out_file << 0 << '\t' << 30 << std::endl;
 
     for (const unsigned& t : ts) {
-        err_file << t << ',';
+        out_file << t << ',';
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
             auto it = err_prs.find({prn_id, t});
 
             if (it != err_prs.end()) {
-                err_file << err_prs[{prn_id, t}];
+                out_file << err_prs[{prn_id, t}];
             }
 
-            err_file << ',';
+            out_file << ',';
         }
 
-        err_file << '\n';
+        out_file << '\n';
     }
 
-    err_file.close();
+    out_file.close();
 }
 
-void NavigationalProblem::errors_rel() {
-    std::ofstream err_file;
-    err_file.open("../results/errors-rel.csv", std::fstream::out);
+void NavigationalProblem::out_errors_rel() {
+    std::ofstream out_file;
+    out_file.open("../results/errors-rel.csv", std::fstream::out);
 
-    err_file << "Вклад релятивистской поправки в решение" << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
-    err_file << -20 << '\t' << 50 << std::endl;
+    out_file << "Вклад релятивистской поправки в решение" << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    out_file << -20 << '\t' << 50 << std::endl;
 
     solve(0, 0, false);
     std::map<unsigned, std::vector<double>> err_no_rel = err_sol;
@@ -286,8 +317,23 @@ void NavigationalProblem::errors_rel() {
 
     for (const unsigned& t : ts) {
         double error = abs(err_no_rel[t]) - abs(err_sol[t]);
-        err_file << t << ',' << error << std::endl;
+        out_file << t << ',' << error << std::endl;
     }
 
-    err_file.close();
+    out_file.close();
+}
+
+void NavigationalProblem::out_number_of_sats() {
+    std::ofstream out_file;
+    out_file.open("../results/number-of-sats.csv", std::fstream::out);
+
+    out_file << "Количество видимых спутников" << '\t' << "Время, с" << '\t' << "Кол-во" << std::endl;
+    out_file << 0 << '\t' << 15 << std::endl;
+
+    for (const unsigned& t : ts) {
+        double num = number_of_sats[t];
+        out_file << t << ',' << num << std::endl;
+    }
+
+    out_file.close();
 }

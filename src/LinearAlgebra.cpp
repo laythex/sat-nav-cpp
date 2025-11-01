@@ -233,6 +233,10 @@ double abs(const std::vector<double>& a) {
     return sqrt(dot(a, a));
 }
 
+double angle(const std::vector<double>& a, const std::vector<double>& b) {
+    return dot(a, b) / abs(a) / abs(b);
+}
+
 Matrix identity(size_t s) {
     Matrix res(s, s);
 

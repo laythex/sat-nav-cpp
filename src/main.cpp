@@ -8,9 +8,10 @@ int main() {
     NavigationalProblem problem = NavigationalProblem("GNV1B_2023-03-23_C_04.txt", "GPS1B_2023-03-23_C_04.txt", handler);
 
     problem.solve();
-    problem.errors_norm();
-    problem.errors_prs();
-    problem.errors_rel();
+    problem.out_errors_norm();
+    problem.out_errors_prs();
+    // problem.out_errors_rel();
+    problem.out_number_of_sats();
 
     return 0;
 }
