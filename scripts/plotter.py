@@ -17,6 +17,9 @@ for i in range(1, data.shape[1]):
     plt.plot(data.iloc[:, 0], data.iloc[:, i])
     plt.scatter(data.iloc[:, 0], data.iloc[:, i], s=3)
 
+y_lim = y_min != 0 or y_max != 0
+y_min = y_min if y_lim else None
+y_max = y_max if y_lim else None
 plt.ylim(y_min, y_max)
 
 plt.grid()

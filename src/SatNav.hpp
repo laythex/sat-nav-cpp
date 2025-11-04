@@ -49,7 +49,7 @@ private:
     double GDOP0 = 5;
     double mask_angle = 5;
     unsigned fadeout_time = 20;
-    double SNR_threshold = 0;
+    double SNR_threshold = 30;
 
     GPSHandler handler;
 

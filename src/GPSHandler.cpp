@@ -83,6 +83,11 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) { // Для прави�
     rnx_file.close();
 }
 
+double GPSHandler::grace_to_sv(double grace_time) const {
+    unsigned week_number = (grace_time + 630763200) / 604800;
+    unsigned week_start = week_number * 604800 - 630763200;
+    return grace_time - week_start;
+}
 
 unsigned GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
     unsigned n = ts_ephs[prn_id].size();
@@ -105,11 +110,8 @@ unsigned GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
     return (t_sv - left < right - t_sv) ? left : right;
 }
 
-double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
-    unsigned week_number = (gps_time + conversion) / 604800;
-    unsigned week_start = week_number * 604800 + 18 - conversion;
-    double t_sv = gps_time - week_start;
-
+double GPSHandler::get_clock_error(unsigned prn_id, double grace_time) {
+    double t_sv = grace_to_sv(grace_time);
     unsigned t_oe = select_ephemeris(prn_id, t_sv);
     std::pair key = {prn_id, t_oe};
 
@@ -123,10 +125,8 @@ double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
     return delta_t_sv;
 }
 
-std::vector<double> GPSHandler::get_state(unsigned prn_id, double gps_time) {
-    unsigned week_start = 732456000;
-    double t_sv = gps_time - week_start;
-
+std::vector<double> GPSHandler::get_state(unsigned prn_id, double grace_time) {
+    double t_sv = grace_to_sv(grace_time);
     unsigned t_oe = select_ephemeris(prn_id, t_sv);
     std::pair key = {prn_id, t_oe};
 

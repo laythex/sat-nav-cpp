@@ -4,17 +4,19 @@
 
 int main() {
 
-    // GPSHandler handler = GPSHandler("brdc0820.23n");
-    // SatNav problem = SatNav("GNV1B_2023-03-23_C_04.txt", "GPS1B_2023-03-23_C_04.txt", handler);
-    GPSHandler handler = GPSHandler("brdc0940.24n");
-    SatNav problem = SatNav("GNV1B_2024-04-03_C_04.txt", "GPS1B_2024-04-03_C_04.txt", handler);
+    GPSHandler handler = GPSHandler("brdc0820.23n");
+    SatNav problem = SatNav("GNV1B_2023-03-23_C_04.txt", "GPS1B_2023-03-23_C_04.txt", handler);
+    // GPSHandler handler = GPSHandler("brdc0940.24n");
+    // SatNav problem = SatNav("GNV1B_2024-04-03_C_04.txt", "GPS1B_2024-04-03_C_04.txt", handler);
 
+    // problem.solve(732880470, 732880690);
+    // problem.solve(732801600 + 78000, 732801600 + 82000);
     problem.solve();
     problem.out_errors_norm();
     problem.out_errors_prs();
-    // problem.out_errors_rel();
-    problem.out_number_of_sats();
-    problem.out_snr_over_sol();
+    // // problem.out_errors_rel();
+    // problem.out_number_of_sats();
+    // problem.out_snr_over_sol();
 
     return 0;
 }

@@ -18,14 +18,14 @@ class GPSHandler {
 
 public:
     GPSHandler(std::string rnx_filename);
-    double get_clock_error(unsigned prn_id, double gps_time);
-    std::vector<double> get_state(unsigned prn_id, double gps_time);
+    double get_clock_error(unsigned prn_id, double grace_time);
+    std::vector<double> get_state(unsigned prn_id, double grace_time);
 
 private:
     void load_rnx_data(std::string rnx_filename);
+    double grace_to_sv(double grace_time) const;
     unsigned select_ephemeris(unsigned prn_id, double t_sv);
 
-    unsigned conversion = 630763200;
     double mu_sqrt = 1.99649818432e7;
     double Omega_e_dot = 7.2921151467e-5;
     double F = -4.442807633e-10;

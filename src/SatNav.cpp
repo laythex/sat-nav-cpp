@@ -163,7 +163,7 @@ void SatNav::solve(unsigned ti, unsigned tf, bool is_relativistic) {
             auto it_raw = raw.find({prn_id, t});
             
             if (it_raw == raw.end()) continue;
-            // if (is_fading(prn_id, it_ts)) continue;
+            if (is_fading(prn_id, it_ts)) continue;
 
             std::vector<double> measurments = it_raw->second;
 
@@ -421,7 +421,7 @@ void SatNav::out_errors_norm() {
     out_file.open("../results/errors-norm.csv", std::fstream::out);
 
     out_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    out_file << 0 << '\t' << 30 << std::endl;
+    out_file << 0 << '\t' << 0 << std::endl;
     
     for (const unsigned& t : ts_sol) {
         out_file << t << ',' << abs(err_sol[t]) << std::endl;
@@ -435,7 +435,7 @@ void SatNav::out_errors_prs() {
     out_file.open("../results/errors-prs.csv", std::fstream::out);
 
     out_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    out_file << 0 << '\t' << 30 << std::endl;
+    out_file << 0 << '\t' << 0 << std::endl;
 
     for (const unsigned& t : ts_sol) {
         out_file << t << ',';
