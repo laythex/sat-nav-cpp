@@ -25,10 +25,11 @@ private:
     void load_rnx_data(std::string rnx_filename);
     unsigned select_ephemeris(unsigned prn_id, double t_sv);
 
+    unsigned conversion = 630763200;
     double mu_sqrt = 1.99649818432e7;
     double Omega_e_dot = 7.2921151467e-5;
     double F = -4.442807633e-10;
 
-    std::map<unsigned, std::vector<unsigned>> ephs_ts; // prn_id - [eph_t1, eph_t2, ...]
+    std::map<unsigned, std::vector<unsigned>> ts_ephs; // prn_id - [eph_t1, eph_t2, ...]
     std::map<std::pair<unsigned, unsigned>, Ephemeris> ephs; // [prn_id, eph_t] - Ephemeris
 };

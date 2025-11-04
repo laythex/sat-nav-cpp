@@ -4,7 +4,7 @@ GPSHandler::GPSHandler(std::string rnx_filename) {
     load_rnx_data(rnx_filename);
 }
 
-void GPSHandler::load_rnx_data(std::string rnx_filename) {
+void GPSHandler::load_rnx_data(std::string rnx_filename) { // Для правильной работы в рнх файле надо заменять D на E. Надо автоматизировать
     std::ifstream rnx_file;
     rnx_file.open("../data/" + rnx_filename, std::ios::in);
 
@@ -56,7 +56,7 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) {
         std::getline(rnx_file, line);
         std::getline(rnx_file, line);
 
-        ephs_ts[prn_id].push_back(t_oe);
+        ts_ephs[prn_id].push_back(t_oe);
 
         std::pair key = {prn_id, t_oe};
         ephs[key].a_f0 = a_f0;
@@ -85,28 +85,29 @@ void GPSHandler::load_rnx_data(std::string rnx_filename) {
 
 
 unsigned GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
-    unsigned n = ephs_ts[prn_id].size();
+    unsigned n = ts_ephs[prn_id].size();
 
     unsigned lo = 0, hi = n, mid;
     while (lo < hi) {
         mid = lo + (hi - lo) / 2;
-        if (ephs_ts[prn_id][mid] < t_sv) {
+        if (ts_ephs[prn_id][mid] < t_sv) {
             lo = mid + 1;
         } else {
             hi = mid;
         }
     }
 
-    if (lo == 0) return ephs_ts[prn_id][0];
-    if (lo == n) return ephs_ts[prn_id].back();
+    if (lo == 0) return ts_ephs[prn_id][0];
+    if (lo == n) return ts_ephs[prn_id].back();
 
-    unsigned left = ephs_ts[prn_id][lo - 1];
-    unsigned right = ephs_ts[prn_id][lo];
+    unsigned left = ts_ephs[prn_id][lo - 1];
+    unsigned right = ts_ephs[prn_id][lo];
     return (t_sv - left < right - t_sv) ? left : right;
 }
 
 double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
-    unsigned week_start = 732456018;
+    unsigned week_number = (gps_time + conversion) / 604800;
+    unsigned week_start = week_number * 604800 + 18 - conversion;
     double t_sv = gps_time - week_start;
 
     unsigned t_oe = select_ephemeris(prn_id, t_sv);

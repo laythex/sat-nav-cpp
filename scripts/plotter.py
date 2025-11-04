@@ -15,6 +15,7 @@ data = pd.read_csv(data_path, skiprows=2)
 
 for i in range(1, data.shape[1]):
     plt.plot(data.iloc[:, 0], data.iloc[:, i])
+    plt.scatter(data.iloc[:, 0], data.iloc[:, i], s=3)
 
 plt.ylim(y_min, y_max)
 
