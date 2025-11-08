@@ -104,8 +104,7 @@ void SatNav::load_gps_data(const std::string& gps_filename, std::map<std::pair<u
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        unsigned qualfig = std::stoi(line);
-        if (qualfig > 0) continue;
+        double qualfig = std::stod(line);
 
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -124,8 +123,14 @@ void SatNav::load_gps_data(const std::string& gps_filename, std::map<std::pair<u
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
+
+        double L1_phase = std::stod(line);
+
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
+
+        double L2_phase = std::stod(line);
+
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -139,13 +144,18 @@ void SatNav::load_gps_data(const std::string& gps_filename, std::map<std::pair<u
         double L2_SNR = std::stod(line);
 
         t.insert(gps_time);
-        r[{prn_id, gps_time}] = {L1_range, L2_range, L1_SNR, L2_SNR};
+        r[{prn_id, gps_time}] = {L1_range, L2_range, L1_phase, L2_phase, L1_SNR, L2_SNR, qualfig};
     }
 
     gps_file.close();
 }
 
-void SatNav::solve(unsigned ti, unsigned tf, bool is_relativistic) {
+void SatNav::solve(unsigned ti, unsigned tf) {
+    std::vector<double> hatch_L1_range(33);
+    std::vector<double> hatch_L2_range(33);
+    std::vector<double> hatch_L1_phase(33);
+    std::vector<double> hatch_L2_phase(33);
+    std::vector<bool> hatch_reset(33, true);
 
     for (auto it_ts = ts_raw.begin(); it_ts != ts_raw.end(); it_ts++) {
         unsigned t = *it_ts;
@@ -156,39 +166,64 @@ void SatNav::solve(unsigned ti, unsigned tf, bool is_relativistic) {
             }
         }
 
-        std::vector<double> pseudoranges;
-        std::vector<std::vector<double>> gps_positions;
+        std::vector<double> PR;
+        std::vector<std::vector<double>> X;
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
             auto it_raw = raw.find({prn_id, t});
             
-            if (it_raw == raw.end()) continue;
-            if (is_fading(prn_id, it_ts)) continue;
+            if (it_raw == raw.end()) { hatch_reset[prn_id] = true; continue; }
+            if (is_fading(prn_id, it_ts) && error_type != 2) { hatch_reset[prn_id] = true; continue; }
 
             std::vector<double> measurments = it_raw->second;
+            double L1_range = measurments[0];
+            double L2_range = measurments[1];
+            double L1_phase = measurments[2];
+            double L2_phase = measurments[3];
+            double L1_SNR = measurments[4];
+            double L2_SNR = measurments[5];
+            double qualfig = measurments[6];
 
-            if (measurments[2] < SNR_threshold || measurments[3] < SNR_threshold) continue;
+            if (qualfig != 0) { hatch_reset[prn_id] = true; continue; }
+            if ((L1_SNR < SNR_threshold || L2_SNR < SNR_threshold) && error_type != 4) { hatch_reset[prn_id] = true; continue; }
 
-            std::vector<double> corrected = correct_raw(prn_id, t, measurments, is_relativistic);
+            if (!hatch_reset[prn_id]) {
+                L1_range = hatch_filter(L1_range, hatch_L1_range[prn_id], 
+                                        L1_phase, hatch_L1_phase[prn_id]);
+                L2_range = hatch_filter(L2_range, hatch_L2_range[prn_id], 
+                                        L2_phase, hatch_L2_phase[prn_id]);
+            }
+            
+            hatch_L1_range[prn_id] = L1_range;
+            hatch_L2_range[prn_id] = L2_range;
+            hatch_L1_phase[prn_id] = L1_phase;
+            hatch_L2_phase[prn_id] = L2_phase;
+            hatch_reset[prn_id] = false;
+            
+            std::vector<double> corrected = correct_raw(prn_id, t, {L1_range, L2_range});
             double pseudorange = corrected[3];
             std::vector<double> gps_pos(corrected.begin(), corrected.begin() + 3);
 
-            pseudoranges.push_back(pseudorange);
-            gps_positions.push_back(gps_pos);
+            PR.push_back(pseudorange);
+            X.push_back(gps_pos);
             
             err_prs[{prn_id, t}] = std::abs(pseudorange - abs(gps_pos - pos[t]));
         }
 
-        number_of_sats.push_back({t, pseudoranges.size()}); // использовать ts_raw
+        number_of_sats.push_back({t, PR.size()}); // использовать ts_raw
 
         try {
-            std::vector<double> sol = calc_pos_from_raw(pseudoranges, gps_positions);
+            std::vector<double> sol = calc_pos_from_raw(PR, X);
 
-            std::vector<bool> low_mask = find_low_satellites(sol, gps_positions);
-            pseudoranges = mask(pseudoranges, low_mask);
-            gps_positions = mask(gps_positions, low_mask);
+            if (error_type != 3) {
+                std::vector<bool> low_mask = find_low_satellites(sol, X);
+                if (std::find(low_mask.begin(), low_mask.end(), true) != low_mask.end()) {
+                    PR = mask(PR, low_mask);
+                    X = mask(X, low_mask);
+                    sol = calc_pos_from_raw(PR, X);
+                }
+            }
 
-            sol = calc_pos_from_raw(pseudoranges, gps_positions);
             err_sol[t] = sol - pos[t];
             ts_sol.insert(t);
 
@@ -221,7 +256,7 @@ void SatNav::solve_rel(unsigned ti, unsigned tf) {
             // if (is_fading(prn_id, it_ts)) continue;
 
             std::vector<double> measurments1 = it_raw1->second;
-            std::vector<double> corrected = correct_raw(prn_id, t, measurments1, true);
+            std::vector<double> corrected = correct_raw(prn_id, t, measurments1);
             double pseudorange = corrected[3];
             std::vector<double> gps_pos(corrected.begin(), corrected.begin() + 3);
 
@@ -252,7 +287,7 @@ void SatNav::solve_rel(unsigned ti, unsigned tf) {
     }
 }
 
-std::vector<double> SatNav::correct_raw(unsigned prn_id, unsigned gps_time, const std::vector<double>& measurments, bool is_relativistic) {
+std::vector<double> SatNav::correct_raw(unsigned prn_id, unsigned gps_time, const std::vector<double>& L_ranges) {
     
     /*  Эффект                     t       t * v    t * c   
     (1) Задержка распространения - 80 мс - 240 км -  ---
@@ -264,13 +299,13 @@ std::vector<double> SatNav::correct_raw(unsigned prn_id, unsigned gps_time, cons
     При корректировке псевдодальности учитываем (1), (2), (3) */
 
     std::vector<double> gps_pos;
-    std::vector<double> corrected_measurments(measurments.size());
+    std::vector<double> corrected_measurments(2);
 
-    for (unsigned i = 0; i < measurments.size(); i++) {
+    for (unsigned i = 0; i < 2; i++) {
 
         double delay = 0;
 
-        double propagation_delay = measurments[i] / c;
+        double propagation_delay = L_ranges[i] / c;
         delay += propagation_delay;
 
         double clock_error = handler.get_clock_error(prn_id, gps_time - delay);
@@ -278,7 +313,7 @@ std::vector<double> SatNav::correct_raw(unsigned prn_id, unsigned gps_time, cons
 
         std::vector<double> state = handler.get_state(prn_id, gps_time - delay);
 
-        if (is_relativistic) {
+        if (error_type != 1) {
             double relativity_error = state[6];
             delay += relativity_error;
         }
@@ -291,30 +326,32 @@ std::vector<double> SatNav::correct_raw(unsigned prn_id, unsigned gps_time, cons
     double phi = corrected_measurments[0] / c * earth_rotation_rate;
     Matrix rot = rotation(-phi, 'z');
     gps_pos = rot * gps_pos;
-
-    double pseudorange = corrected_measurments[0] * C1 + corrected_measurments[1] * C2;
+    
+    double pseudorange = corrected_measurments[0];
+    if (error_type != 0) {
+        pseudorange = corrected_measurments[0] * C1 + corrected_measurments[1] * C2;
+    }
 
     return {gps_pos[0], gps_pos[1], gps_pos[2], pseudorange};
 }
 
-std::vector<double> SatNav::calc_pos_from_raw(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const {
+std::vector<double> SatNav::calc_pos_from_raw(const std::vector<double>& PR, const std::vector<std::vector<double>>& X) const {
 
     std::vector<double> x0 = {0.0, 0.0, 0.0};
     double c_tau = 0.0;
     double eps = 1.0;
     
-    unsigned n = pseudoranges.size();
+    unsigned n = PR.size();
 
     std::vector<double> U(n);
     Matrix B(n, 4, 1.0);
 
     while (true) {
-        
         for (unsigned i = 0; i < n; i++) {
-            std::vector<double> DX = gps_positions[i] - x0;
+            std::vector<double> DX = X[i] - x0;
             double D = abs(DX);
 
-            U[i] = pseudoranges[i] - D;
+            U[i] = PR[i] - D;
             for (unsigned j = 0; j < 3; j++) {
                 B.at(i, j) = DX[j] / D;
             }
@@ -377,9 +414,9 @@ std::vector<bool> SatNav::find_low_satellites(const std::vector<double>& sol, co
     for (unsigned i = 0; i < gps_positions.size(); i++) {
         std::vector<double> gps_rel = gps_positions[i] - sol;
         double zenith_angle = angle_between(sol, gps_rel) * 180.0 * M_1_PI;
-
         if (90.0 - zenith_angle < mask_angle) {
             mask_indices[i] = false;
+            std::cout << "aaa" << std::endl;
         }
     }
 
@@ -416,12 +453,16 @@ bool SatNav::is_fading(unsigned prn_id, const std::set<unsigned>::iterator& it_t
     return false;
 }
 
-void SatNav::out_errors_norm() {
+double SatNav::hatch_filter(double range, double range_prev, double phase, double phase_prev) {
+    return hatch_constant * range + (1 - hatch_constant) * (range_prev + phase - phase_prev);
+}
+
+void SatNav::out_error_norm() {
     std::ofstream out_file;
     out_file.open("../results/errors-norm.csv", std::fstream::out);
 
     out_file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    out_file << 0 << '\t' << 0 << std::endl;
+    out_file << 0 << '\t' << 5 << std::endl;
     
     for (const unsigned& t : ts_sol) {
         out_file << t << ',' << abs(err_sol[t]) << std::endl;
@@ -430,12 +471,12 @@ void SatNav::out_errors_norm() {
     out_file.close();
 }
 
-void SatNav::out_errors_prs() {
+void SatNav::out_error_prs() {
     std::ofstream out_file;
     out_file.open("../results/errors-prs.csv", std::fstream::out);
 
     out_file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
-    out_file << 0 << '\t' << 0 << std::endl;
+    out_file << 0 << '\t' << 5 << std::endl;
 
     for (const unsigned& t : ts_sol) {
         out_file << t << ',';
@@ -456,25 +497,6 @@ void SatNav::out_errors_prs() {
     out_file.close();
 }
 
-void SatNav::out_errors_rel() {
-    std::ofstream out_file;
-    out_file.open("../results/errors-rel.csv", std::fstream::out);
-
-    out_file << "Вклад релятивистской поправки в решение" << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
-    out_file << -20 << '\t' << 50 << std::endl;
-
-    solve(0, 0, false);
-    std::map<unsigned, std::vector<double>> err_no_rel = err_sol;
-    solve();
-
-    for (const unsigned& t : ts_sol) {
-        double error = abs(err_no_rel[t]) - abs(err_sol[t]);
-        out_file << t << ',' << error << std::endl;
-    }
-
-    out_file.close();
-}
-
 void SatNav::out_number_of_sats() {
     std::ofstream out_file;
     out_file.open("../results/number-of-sats.csv", std::fstream::out);
@@ -489,31 +511,23 @@ void SatNav::out_number_of_sats() {
     out_file.close();
 }
 
-void SatNav::out_snr_over_sol() {
+void SatNav::out_error_by_type(unsigned et) {
     std::ofstream out_file;
-    out_file.open("../results/snr-over-sol.csv", std::fstream::out);
+    out_file.open("../results/errors-" + error_names[et] + ".csv", std::fstream::out);
 
-    out_file << "Соотношение сигнал/шум" << '\t' << "Время, с" << '\t' << "" << std::endl;
-    out_file << 0 << '\t' << 150 << std::endl;
+    out_file << error_descr[et] << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    out_file << 0 << '\t' << 0 << std::endl;
 
-    for (auto& t : ts_sol) {
-        double L1_SNR = 0, L2_SNR = 0;
+    error_type = et;
+    solve(0, 0);
+    std::map<unsigned, std::vector<double>> err_false = err_sol;
 
-        unsigned n = 0;
-        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
-            auto raw_it = raw.find({prn_id, t});
-            if (raw_it == raw.end()) continue;
+    error_type = -1;
+    solve();
 
-            std::vector<double> measurments = raw_it->second;
-            L1_SNR += measurments[2];
-            L2_SNR += measurments[3];
-            n++;
-        }
-
-        L1_SNR /= n;
-        L2_SNR /= n;
-
-        out_file << t << ',' << abs(err_sol[t]) << ',' << L1_SNR / 2 << std::endl;
+    for (const unsigned& t : ts_sol) {
+        double error = abs(err_false[t] - err_sol[t]);
+        out_file << t << ',' << error << std::endl;
     }
 
     out_file.close();
