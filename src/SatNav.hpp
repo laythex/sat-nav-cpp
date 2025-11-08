@@ -69,11 +69,12 @@ private:
     std::map<unsigned, std::vector<double>> err_sol;
     std::vector<std::pair<unsigned, unsigned>> number_of_sats;
     
-    std::vector<std::string> error_names = {"iono", "rel", "fade", "low", "snr"};
+    std::vector<std::string> error_names = {"iono", "rel", "fade", "low", "snr", "hatch"};
     std::vector<std::string> error_descr = {"Ионосферная комбинация",
                                             "Релятивистская поправка",
                                             "Появляющиеся/исчезающие спутники, (t > " + std::to_string(fadeout_time) + " с)",
                                             "Низкие спутники, (высота > " + std::to_string(mask_angle) + " град)",
-                                            "Сигнал/шум (SNR > " + std::to_string(SNR_threshold) + ")"};
+                                            "Сигнал/шум (SNR > " + std::to_string(SNR_threshold) + ")",
+                                            "Hatch-фильтр"};
     unsigned error_type = -1;
 };

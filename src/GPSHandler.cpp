@@ -6,7 +6,7 @@ GPSHandler::GPSHandler(std::string rnx_filename) {
 
 void GPSHandler::load_rnx_data(std::string rnx_filename) { // Для правильной работы в рнх файле надо заменять D на E. Надо автоматизировать
     std::ifstream rnx_file;
-    rnx_file.open("../data/" + rnx_filename, std::ios::in);
+    rnx_file.open("../data/brdc/" + rnx_filename, std::ios::in);
 
     std::string line;
 

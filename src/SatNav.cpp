@@ -26,7 +26,7 @@ SatNav::SatNav(const std::string& gnv_filename1, const std::string& gnv_filename
 
 void SatNav::load_gnv_data(const std::string& gnv_filename, std::map<unsigned, std::vector<double>>& p, std::map<unsigned, std::vector<double>>& v) {
     std::ifstream gnv_file;
-    gnv_file.open("../data/" + gnv_filename, std::ios::in);
+    gnv_file.open("../data/gnv/" + gnv_filename, std::ios::in);
 
     std::string line;
 
@@ -71,7 +71,7 @@ void SatNav::load_gnv_data(const std::string& gnv_filename, std::map<unsigned, s
 
 void SatNav::load_gps_data(const std::string& gps_filename, std::map<std::pair<unsigned, unsigned>, std::vector<double>>& r, std::set<unsigned>& t) {
     std::ifstream gps_file;
-    gps_file.open("../data/" + gps_filename, std::ios::in);
+    gps_file.open("../data/gps/" + gps_filename, std::ios::in);
 
     std::string line;
 
@@ -187,19 +187,21 @@ void SatNav::solve(unsigned ti, unsigned tf) {
             if (qualfig != 0) { hatch_reset[prn_id] = true; continue; }
             if ((L1_SNR < SNR_threshold || L2_SNR < SNR_threshold) && error_type != 4) { hatch_reset[prn_id] = true; continue; }
 
-            if (!hatch_reset[prn_id]) {
-                L1_range = hatch_filter(L1_range, hatch_L1_range[prn_id], 
-                                        L1_phase, hatch_L1_phase[prn_id]);
-                L2_range = hatch_filter(L2_range, hatch_L2_range[prn_id], 
-                                        L2_phase, hatch_L2_phase[prn_id]);
+            if (0 && error_type != 5) {
+                if (!hatch_reset[prn_id]) {
+                    L1_range = hatch_filter(L1_range, hatch_L1_range[prn_id], 
+                                            L1_phase, hatch_L1_phase[prn_id]);
+                    L2_range = hatch_filter(L2_range, hatch_L2_range[prn_id], 
+                                            L2_phase, hatch_L2_phase[prn_id]);
+                }
+                
+                hatch_L1_range[prn_id] = L1_range;
+                hatch_L2_range[prn_id] = L2_range;
+                hatch_L1_phase[prn_id] = L1_phase;
+                hatch_L2_phase[prn_id] = L2_phase;
+                hatch_reset[prn_id] = false;
             }
-            
-            hatch_L1_range[prn_id] = L1_range;
-            hatch_L2_range[prn_id] = L2_range;
-            hatch_L1_phase[prn_id] = L1_phase;
-            hatch_L2_phase[prn_id] = L2_phase;
-            hatch_reset[prn_id] = false;
-            
+
             std::vector<double> corrected = correct_raw(prn_id, t, {L1_range, L2_range});
             double pseudorange = corrected[3];
             std::vector<double> gps_pos(corrected.begin(), corrected.begin() + 3);
