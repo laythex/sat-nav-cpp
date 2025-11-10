@@ -1,28 +1,23 @@
 #pragma once
 
 #include <cmath>
-#include <fstream>
+
+#include <string>
 #include <vector>
 #include <map>
 
 #include <iostream>
 
-struct Ephemeris {
-    double a_f0, a_f1, a_f2;
-    double M_0, delta_n, e, A_sqrt, Omega_0, i_0, omega, Omega_dot, IDOT;
-    double C_uc, C_us, C_rc, C_rs, C_ic, C_is;
-};
-
+#include "DataParser.hpp"
 
 class GPSHandler {
 
 public:
-    GPSHandler(std::string rnx_filename);
+    GPSHandler(const std::string& brdc_filename);
     double get_clock_error(unsigned prn_id, double grace_time);
     std::vector<double> get_state(unsigned prn_id, double grace_time);
 
 private:
-    void load_rnx_data(std::string rnx_filename);
     double grace_to_sv(double grace_time) const;
     unsigned select_ephemeris(unsigned prn_id, double t_sv);
 

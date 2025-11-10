@@ -1,16 +1,17 @@
 #pragma once
 
 #include <iostream>
-#include <iomanip>
-#include <fstream>
+
 #include <vector>
 #include <map>
 #include <set>
+
 #include <stdexcept>
 #include <algorithm>
 
 #include "LinAlg.hpp"
 #include "GPSHandler.hpp"
+#include "DataParser.hpp"
 
 class SatNav {
 
@@ -24,22 +25,19 @@ public:
     void solve(unsigned ti = 0, unsigned tf = 0);
     void solve_rel(unsigned ti = 0, unsigned tf = 0);
 
-    void out_error_norm();
+    void out_error_norm(); // Все out в отдельный файл?
     void out_error_prs();
     void out_number_of_sats();
+    void out_is_solved();
     void out_error_by_type(unsigned et);
 
 private:
-    void load_gnv_data(const std::string& gnv_filename, std::map<unsigned, std::vector<double>>& p, std::map<unsigned, std::vector<double>>& v);
-    void load_gps_data(const std::string& gps_filename, std::map<std::pair<unsigned, unsigned>, std::vector<double>>& r, std::set<unsigned>& t);
-
     std::vector<double> correct_raw(unsigned prn_id, unsigned gps_time, const std::vector<double>& L_ranges);
     std::vector<double> calc_pos_from_raw(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const;
     std::vector<double> calc_rel_pos_from_raw(const std::vector<double>& pseudoranges_diff, const std::vector<std::vector<double>>& gps_positions, 
                                               const std::vector<double>& passive_position) const;
-    std::vector<bool> find_low_satellites(const std::vector<double>& sol, const std::vector<std::vector<double>>& gps_positions);
+    std::vector<bool> mask_low_satellites(const std::vector<double>& sol, const std::vector<std::vector<double>>& gps_positions);
     bool is_fading(unsigned prn_id, const std::set<unsigned>::iterator& it_ts);
-    double hatch_filter(double range, double range_prev, double phase, double phase_prev);
 
     double c = 2.99792458e8;
     double earth_rotation_rate = 7.2921151467e-5;
@@ -50,7 +48,7 @@ private:
     double GDOP0 = 5;
     double mask_angle = 5;
     unsigned fadeout_time = 20;
-    double SNR_threshold = 50;
+    double SNR_threshold = 30;
     double hatch_constant = 0.1;
 
     GPSHandler handler;
@@ -67,7 +65,8 @@ private:
     std::set<unsigned> ts_sol;
     std::map<std::pair<unsigned, unsigned>, double> err_prs;
     std::map<unsigned, std::vector<double>> err_sol;
-    std::vector<std::pair<unsigned, unsigned>> number_of_sats;
+    std::map<unsigned, unsigned> number_of_sats;
+    std::map<unsigned, bool> is_solved;
     
     std::vector<std::string> error_names = {"iono", "rel", "fade", "low", "snr", "hatch"};
     std::vector<std::string> error_descr = {"Ионосферная комбинация",
