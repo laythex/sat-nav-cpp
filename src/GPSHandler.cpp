@@ -46,8 +46,8 @@ double GPSHandler::get_clock_error(unsigned prn_id, double grace_time) {
     return delta_t_sv;
 }
 
-std::vector<double> GPSHandler::get_state(unsigned prn_id, double grace_time) {
-    double t_sv = grace_to_sv(grace_time);
+GPSState GPSHandler::get_state(unsigned prn_id, double grace_time) {
+    double t_sv = grace_to_sv(grace_time); // а если не грейс?
     unsigned t_oe = select_ephemeris(prn_id, t_sv);
     std::pair key = {prn_id, t_oe};
 
@@ -117,6 +117,6 @@ std::vector<double> GPSHandler::get_state(unsigned prn_id, double grace_time) {
 
     double delta_t_r = F * e * A_sqrt * sin(E);
 
-    return {x, y, z, vx, vy, vz, delta_t_r};
+    return {{0, {x, y, z}, {vx, vy, vz}}, delta_t_r};
 }
 

@@ -3,41 +3,33 @@
 #include <iostream>
 
 #include <vector>
-#include <map>
-#include <set>
-
-#include <stdexcept>
-#include <algorithm>
 
 #include "LinAlg.hpp"
+#include "Structures.hpp"
 #include "GPSHandler.hpp"
 #include "DataParser.hpp"
+
 
 class SatNav {
 
 public:
-    SatNav(const std::string& gnv_filename, const std::string& gps_filename, 
-           const GPSHandler& handler);
-    SatNav(const std::string& gnv_filename1, const std::string& gnv_filename2, 
-           const std::string& gps_filename1, const std::string& gps_filename2, 
-           const GPSHandler& handler);
-
-    void solve(unsigned ti = 0, unsigned tf = 0);
-    void solve_rel(unsigned ti = 0, unsigned tf = 0);
-
-    void out_error_norm(); // Все out в отдельный файл?
-    void out_error_prs();
-    void out_number_of_sats();
-    void out_is_solved();
-    void out_error_by_type(unsigned et);
+    SatNav(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
+    void solve(unsigned ti = 0, unsigned tf = 0, char error_type = '0');
 
 private:
-    std::vector<double> correct_raw(unsigned prn_id, unsigned gps_time, const std::vector<double>& L_ranges);
-    std::vector<double> calc_pos_from_raw(const std::vector<double>& pseudoranges, const std::vector<std::vector<double>>& gps_positions) const;
-    std::vector<double> calc_rel_pos_from_raw(const std::vector<double>& pseudoranges_diff, const std::vector<std::vector<double>>& gps_positions, 
-                                              const std::vector<double>& passive_position) const;
-    std::vector<bool> mask_low_satellites(const std::vector<double>& sol, const std::vector<std::vector<double>>& gps_positions);
-    bool is_fading(unsigned prn_id, const std::set<unsigned>::iterator& it_ts);
+    RefinedMeasurement refine_raw(const RawMeasurement& raw_m);
+    RefinedMeasurement apply_clock_and_relativistic_errors(const RawMeasurement& raw_m, unsigned frequency);
+    SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg) const;
+
+    // std::vector<double> get_true_position(unsigned user_time);
+    // std::vector<double> get_true_velocity(unsigned user_time);
+    
+    GPSHandler handler;
+
+    std::vector<State> true_states;
+    std::vector<SolutionState> solution_states;
+    std::vector<RawMeasurementGroupped> raw_measurements_groupped;
+    std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
 
     double c = 2.99792458e8;
     double earth_rotation_rate = 7.2921151467e-5;
@@ -51,29 +43,5 @@ private:
     double SNR_threshold = 30;
     double hatch_constant = 0.1;
 
-    GPSHandler handler;
-
-    std::map<unsigned, std::vector<double>> pos;
-    std::map<unsigned, std::vector<double>> vel;
-    std::map<unsigned, std::vector<double>> pos2;
-    std::map<unsigned, std::vector<double>> vel2;
-
-    std::set<unsigned> ts_raw;
-    std::map<std::pair<unsigned, unsigned>, std::vector<double>> raw;
-    std::map<std::pair<unsigned, unsigned>, std::vector<double>> raw2;
-
-    std::set<unsigned> ts_sol;
-    std::map<std::pair<unsigned, unsigned>, double> err_prs;
-    std::map<unsigned, std::vector<double>> err_sol;
-    std::map<unsigned, unsigned> number_of_sats;
-    std::map<unsigned, bool> is_solved;
-    
-    std::vector<std::string> error_names = {"iono", "rel", "fade", "low", "snr", "hatch"};
-    std::vector<std::string> error_descr = {"Ионосферная комбинация",
-                                            "Релятивистская поправка",
-                                            "Появляющиеся/исчезающие спутники, (t > " + std::to_string(fadeout_time) + " с)",
-                                            "Низкие спутники, (высота > " + std::to_string(mask_angle) + " град)",
-                                            "Сигнал/шум (SNR > " + std::to_string(SNR_threshold) + ")",
-                                            "Hatch-фильтр"};
-    unsigned error_type = -1;
+    char error_type = '0';
 };
