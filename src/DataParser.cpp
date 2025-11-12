@@ -51,8 +51,8 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
 }
 
 std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std::string& filename) {
-    std::vector<RawMeasurementGroupped> rmgs;
-    std::vector<RawMeasurement> rms(32);
+    std::vector<RawMeasurementGroupped> raw_mgs;
+    std::vector<RawMeasurement> raw_ms(32);
     unsigned user_time_current = 0;
     
     std::ifstream file;
@@ -128,27 +128,31 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
 
         double L2_SNR = std::stod(line);
 
-        RawMeasurement rm = {user_time, prn_id,
-                             L1_range, L2_range,
-                             L1_phase, L2_phase,
-                             L1_SNR, L2_SNR,
-                             qualflg};
+        RawMeasurement raw_m = {true,
+                                user_time, prn_id,
+                                L1_range, L2_range,
+                                L1_phase, L2_phase,
+                                L1_SNR, L2_SNR,
+                                qualflg};
 
         if (user_time_current == 0) user_time_current = user_time;
 
-        if (user_time == user_time_current) {
-            unsigned prn_index = prn_id - 1;
-            rms[prn_index] = rm;
-        } else {
-            rmgs.push_back({user_time_current, rms});
-            rms.clear();
+        if (user_time != user_time_current) {
+            raw_mgs.push_back({user_time_current, raw_ms});
+            
+            raw_ms.clear();
+            raw_ms.resize(32);
+
             user_time_current = user_time;
         }
+
+        unsigned prn_index = prn_id - 1;
+        raw_ms[prn_index] = raw_m;
     }
 
     file.close();
 
-    return rmgs;
+    return raw_mgs;
 }
 
 void DataParser::load_brdc_data(const std::string& filename, 

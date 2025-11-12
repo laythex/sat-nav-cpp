@@ -7,11 +7,14 @@ SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename,
     raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
 }
 
-// мб и не войд, надо подумать
 void SatNav::solve(unsigned ti, unsigned tf, char et) {
     error_type = et;
 
-    for (const auto& raw_mg : raw_measurements_groupped) {
+    for (auto raw_mg_it = raw_measurements_groupped.begin();
+         raw_mg_it != raw_measurements_groupped.end();
+         raw_mg_it++) {
+
+        RawMeasurementGroupped raw_mg = *raw_mg_it;
 
         if ((ti > 0 || tf > 0) && (raw_mg.time < ti || raw_mg.time > tf)) {
             continue;
@@ -23,15 +26,28 @@ void SatNav::solve(unsigned ti, unsigned tf, char et) {
             unsigned prn_index = prn_id - 1;
 
             RawMeasurement raw_m = raw_mg.raw_measurements[prn_index];
-            
-            // fading
-            // qualflg
-            // snr
+
+            if (!raw_m.is_present) {
+                continue;
+            }
+
+            if (raw_m.qualflg != 0) {
+                continue;
+            }
+
+            if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
+                continue;
+            }
+
+            if (check_fading(raw_m, raw_mg_it)) {
+                continue;
+            }
 
             RefinedMeasurement ref_m = refine_raw(raw_m);
-            ref_ms[prn_index] = ref_m;
 
-            // hatch
+            ref_m = hatch_filter(ref_m);
+            
+            ref_ms[prn_index] = ref_m;
         }
 
         RefinedMeasurementGroupped ref_mg = {raw_mg.time, ref_ms};
@@ -44,8 +60,6 @@ void SatNav::solve(unsigned ti, unsigned tf, char et) {
             // low
 
             solution_states.push_back(solution);
-        } else {
-            // solution.failure_type
         }
     }
    
@@ -61,8 +75,9 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
     std::vector<double> gps_position = rot * ref_m1.gps_position;
     
     double pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
+    double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
 
-    return {raw_m.time, raw_m.prn_id, pseudorange, gps_position};
+    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position};
 }
 
 RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurement& raw_m, unsigned frequency) {
@@ -95,11 +110,10 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
     double relativistic_error = gs.relativistic_error;
     delay += relativistic_error;
 
-    return {raw_m.time, raw_m.prn_id, delay * c, gs.position};
+    return {true, raw_m.time, raw_m.prn_id, delay * c, 0, gs.position};
 }
 
 SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_mg) const {
-
     SolutionState solution;
 
     std::vector<double> PR;
@@ -107,7 +121,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     unsigned n = 0;
 
     for (const auto& ref_m : ref_mg.refined_measurements) {
-        if (ref_m.prn_id != 0) {
+        if (ref_m.is_present) {
             PR.push_back(ref_m.pseudorange);
             X.push_back(ref_m.gps_position);
             n++;
@@ -154,8 +168,8 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
 
         std::vector<double> dX_x = std::vector<double>(dX.begin(), dX.begin() + 3);
         double dX_c_tau = dX[3];
-    
-        double delta = abs(dX_x) + std::abs(dX_c_tau - c_tau);
+
+        double delta = abs(dX_x) + std::abs(dX_c_tau - c_tau);       
         if (delta < eps) {
             break;
         }
@@ -171,3 +185,79 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     return solution;
 }
 
+bool SatNav::check_fading(const RawMeasurement& raw_m,
+                  const std::vector<RawMeasurementGroupped>::iterator& raw_mg_it) {
+    unsigned t0 = raw_m.time;
+    unsigned prn_index = raw_m.prn_id - 1;
+
+    auto it_fwd = raw_mg_it;
+    while(true) {
+        it_fwd++;
+        if (it_fwd == raw_measurements_groupped.end()) return true;
+
+        unsigned t = it_fwd->time;
+        if (t - t0 > fadeout_time) break;
+
+        if (!it_fwd->raw_measurements[prn_index].is_present) return true;
+    }
+
+    auto it_bwd = raw_mg_it;
+    while(true) {
+        if (it_fwd == raw_measurements_groupped.begin()) return true;
+        it_fwd--;
+
+        unsigned t = it_fwd->time;
+        if (t0 - t > fadeout_time) break;
+
+        if (!it_fwd->raw_measurements[prn_index].is_present) return true;
+    }
+    
+    return false;
+}
+
+RefinedMeasurement SatNav::hatch_filter(const RefinedMeasurement& ref_m) {
+    unsigned prn_index = ref_m.prn_id - 1;
+
+    RefinedMeasurement ref_m_hatch = ref_m;
+
+    if (refined_measurements_groupped.size() > 0) {
+
+        RefinedMeasurementGroupped ref_mg_last = *(--refined_measurements_groupped.end());  
+
+        if (ref_mg_last.refined_measurements[prn_index].is_present) {
+            double pseudorange_prev = ref_mg_last.refined_measurements[prn_index].pseudorange;
+            double carrier_phase_prev = ref_mg_last.refined_measurements[prn_index].carrier_phase;
+            double delta_phase = ref_m.carrier_phase - carrier_phase_prev;
+
+            ref_m_hatch.pseudorange = hatch_constant * ref_m.pseudorange +
+                                      (1 - hatch_constant) * (pseudorange_prev + delta_phase);
+        }
+    }
+
+    return ref_m_hatch;
+}
+
+const State& SatNav::get_true_state_at(unsigned time) {
+    unsigned n = true_states.size();
+
+    unsigned lo = 0, hi = n - 1;
+    while (lo <= hi) {
+        unsigned mid = lo + (hi - lo) / 2;
+
+        if (true_states[mid].time == time) {
+            return true_states[mid];
+        }
+
+        if (true_states[mid].time < time) {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    return empty_state;
+}
+
+const std::vector<SolutionState>& SatNav::get_solution_states() const {
+    return solution_states;
+}

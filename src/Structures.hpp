@@ -12,12 +12,21 @@ struct State {
     unsigned time;
     std::vector<double> position;
     std::vector<double> velocity;
+
+    State();
+    State(unsigned time, 
+          const std::vector<double>& position,
+          const std::vector<double>& velocity);
 };
 
 struct GPSState : State {
     double relativistic_error;
 
     GPSState();
+    GPSState(unsigned time, 
+             const std::vector<double>& position,
+             const std::vector<double>& velocity,
+             double relativistic_error);
 };
 
 struct SolutionState : State {
@@ -26,9 +35,14 @@ struct SolutionState : State {
     double GDOP;
 
     SolutionState();
+    SolutionState(unsigned time, 
+                  const std::vector<double>& position,
+                  const std::vector<double>& velocity,
+                  bool is_solved, char failure_type, double GDOP);
 };
 
 struct RawMeasurement {
+    bool is_present;
     unsigned time;
     unsigned prn_id;
     double L1_range, L2_range;
@@ -37,15 +51,26 @@ struct RawMeasurement {
     unsigned qualflg;
 
     RawMeasurement();
+    RawMeasurement(bool is_present, 
+                   unsigned time, unsigned prn_id,
+                   double L1_range, double L2_range,
+                   double L1_phase, double L2_phase,
+                   double L1_SNR, double L2_SNR,
+                   unsigned qualflg);
 };
 
 struct RefinedMeasurement {
+    bool is_present;
     unsigned time;
     unsigned prn_id;
     double pseudorange;
+    double carrier_phase;
     std::vector<double> gps_position;
 
     RefinedMeasurement();
+    RefinedMeasurement(bool is_present,
+                       unsigned time, unsigned prn_id, double pseudorange, double carrier_phase,
+                       const std::vector<double>& gps_position);
 };
 
 struct RawMeasurementGroupped {
@@ -53,6 +78,8 @@ struct RawMeasurementGroupped {
     std::vector<RawMeasurement> raw_measurements;
 
     RawMeasurementGroupped();
+    RawMeasurementGroupped(unsigned time,
+                           const std::vector<RawMeasurement>& raw_measurements);
 };
 
 struct RefinedMeasurementGroupped {
@@ -60,4 +87,6 @@ struct RefinedMeasurementGroupped {
     std::vector<RefinedMeasurement> refined_measurements;
 
     RefinedMeasurementGroupped();
+    RefinedMeasurementGroupped(unsigned time,
+                               const std::vector<RefinedMeasurement>& refined_measurements);
 };

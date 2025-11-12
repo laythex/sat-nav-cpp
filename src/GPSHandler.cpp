@@ -117,6 +117,6 @@ GPSState GPSHandler::get_state(unsigned prn_id, double grace_time) {
 
     double delta_t_r = F * e * A_sqrt * sin(E);
 
-    return {{0, {x, y, z}, {vx, vy, vz}}, delta_t_r};
+    return {0, {x, y, z}, {vx, vy, vz}, delta_t_r};
 }
 
