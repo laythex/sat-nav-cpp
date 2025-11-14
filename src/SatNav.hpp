@@ -8,6 +8,7 @@
 #include "Structures.hpp"
 #include "GPSHandler.hpp"
 #include "DataParser.hpp"
+#include "Logger.hpp"
 
 class SatNav {
 
@@ -17,6 +18,7 @@ public:
 
     const State& get_true_state_at(unsigned time);
     const std::vector<SolutionState>& get_solution_states() const;
+    const std::vector<RefinedMeasurementGroupped>& get_refined_measurements_groupped() const;
 
 private:
     RefinedMeasurement refine_raw(const RawMeasurement& raw_m);
@@ -24,6 +26,7 @@ private:
     SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg) const;
     bool check_fading(const RawMeasurement& raw_m,
                       const std::vector<RawMeasurementGroupped>::iterator& raw_mg_it);
+    std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
     
     GPSHandler handler;
@@ -33,7 +36,9 @@ private:
     std::vector<RawMeasurementGroupped> raw_measurements_groupped;
     std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
 
-    State empty_state; // костыль
+    State empty_state; // костыль для get_true_state_at
+
+    Logger logger;
 
     double c = 2.99792458e8;
     double earth_rotation_rate = 7.2921151467e-5;

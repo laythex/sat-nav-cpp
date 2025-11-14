@@ -8,6 +8,8 @@ SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename,
 }
 
 void SatNav::solve(unsigned ti, unsigned tf, char et) {
+    logger.log("Beginning to solve...");
+
     error_type = et;
 
     for (auto raw_mg_it = raw_measurements_groupped.begin();
@@ -54,16 +56,26 @@ void SatNav::solve(unsigned ti, unsigned tf, char et) {
         refined_measurements_groupped.push_back(ref_mg);
 
         SolutionState solution = calculate_solution(ref_mg);
+        if (!solution.is_solved) continue;
 
-        if (solution.is_solved) {
+        std::vector<unsigned> low = check_low(solution, ref_mg);
+        if (low.size() > 0) {
+            for (unsigned prn_id : low) {
+                unsigned prn_index = prn_id - 1;
+                ref_mg.refined_measurements[prn_index].is_present = false;
+            }
 
-            // low
-
-            solution_states.push_back(solution);
+            solution = calculate_solution(ref_mg);
+            if (!solution.is_solved) continue;
         }
+
+        solution_states.push_back(solution);
+
     }
    
     error_type = '0';
+
+    logger.log("Finished solving");
 }
 
 RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
@@ -215,6 +227,25 @@ bool SatNav::check_fading(const RawMeasurement& raw_m,
     return false;
 }
 
+std::vector<unsigned> SatNav::check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg) {
+    std::vector<unsigned> low;
+
+    for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+        unsigned prn_index = prn_id - 1;
+        RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
+
+        if (!ref_m.is_present) continue;
+        
+        std::vector<double> gps_relative = ref_m.gps_position - solution.position;
+        double zenith_angle = angle_between(solution.position, gps_relative) * 180.0 * M_1_PI;
+        if (90.0 - zenith_angle < mask_angle) {
+            low.push_back(prn_id);
+        }
+    }
+
+    return low;
+}
+
 RefinedMeasurement SatNav::hatch_filter(const RefinedMeasurement& ref_m) {
     unsigned prn_index = ref_m.prn_id - 1;
 
@@ -260,4 +291,8 @@ const State& SatNav::get_true_state_at(unsigned time) {
 
 const std::vector<SolutionState>& SatNav::get_solution_states() const {
     return solution_states;
+}
+
+const std::vector<RefinedMeasurementGroupped>& SatNav::get_refined_measurements_groupped() const {
+    return refined_measurements_groupped;
 }
