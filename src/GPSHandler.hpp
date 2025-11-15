@@ -14,6 +14,7 @@ class GPSHandler {
 
 public:
     GPSHandler(const std::string& brdc_filename);
+    
     double get_clock_error(unsigned prn_id, double grace_time);
     GPSState get_state(unsigned prn_id, double grace_time);
 

@@ -58,4 +58,3 @@ std::vector<T> mask(const std::vector<T>& a, const std::vector<bool> m) {
 
     return res;
 }
-

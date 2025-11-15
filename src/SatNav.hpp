@@ -14,9 +14,13 @@ class SatNav {
 
 public:
     SatNav(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
-    void solve(unsigned ti = 0, unsigned tf = 0, char error_type = '0');
+    SatNav(const SatNav& sn);
+
+    void solve(char et = '0', unsigned ti = 0, unsigned tf = 0);
 
     const State& get_true_state_at(unsigned time);
+    const SolutionState& get_solution_state_at(unsigned time) const;
+
     const std::vector<SolutionState>& get_solution_states() const;
     const std::vector<RefinedMeasurementGroupped>& get_refined_measurements_groupped() const;
 
@@ -37,6 +41,7 @@ private:
     std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
 
     State empty_state; // костыль для get_true_state_at
+    SolutionState empty_solution_state; // дважды костыль
 
     Logger logger;
 

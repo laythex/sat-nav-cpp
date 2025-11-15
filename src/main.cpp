@@ -13,6 +13,8 @@ int main() {
     Plotter plotter(problem);
     plotter.plot_errors_norm(0, 30);
     plotter.plot_errors_pr();
+    plotter.plot_errors_by_type('I');
+    // plotter.plot_map_iono();
 
     return 0;
 }

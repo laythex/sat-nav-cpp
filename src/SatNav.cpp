@@ -2,12 +2,15 @@
 
 SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename, 
                const GPSHandler& handler) : handler(handler) {
-    
     true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
     raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
 }
 
-void SatNav::solve(unsigned ti, unsigned tf, char et) {
+SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
+                                   true_states(sn.true_states), 
+                                   raw_measurements_groupped(sn.raw_measurements_groupped) { }
+
+void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мало точек, надо разобраться
     logger.log("Beginning to solve...");
 
     error_type = et;
@@ -37,18 +40,23 @@ void SatNav::solve(unsigned ti, unsigned tf, char et) {
                 continue;
             }
 
-            if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
-                continue;
+            if (error_type != 'S') {
+                if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
+                    continue;
+                }
             }
-
-            if (check_fading(raw_m, raw_mg_it)) {
-                continue;
+            if (error_type != 'F') {
+                if (check_fading(raw_m, raw_mg_it)) {
+                    continue;
+                }
             }
 
             RefinedMeasurement ref_m = refine_raw(raw_m);
 
-            ref_m = hatch_filter(ref_m);
-            
+            if (error_type != 'H') {
+                ref_m = hatch_filter(ref_m);
+            }
+
             ref_ms[prn_index] = ref_m;
         }
 
@@ -56,21 +64,21 @@ void SatNav::solve(unsigned ti, unsigned tf, char et) {
         refined_measurements_groupped.push_back(ref_mg);
 
         SolutionState solution = calculate_solution(ref_mg);
-        if (!solution.is_solved) continue;
 
-        std::vector<unsigned> low = check_low(solution, ref_mg);
-        if (low.size() > 0) {
-            for (unsigned prn_id : low) {
-                unsigned prn_index = prn_id - 1;
-                ref_mg.refined_measurements[prn_index].is_present = false;
+        if (error_type != 'L') {
+            if (solution.is_solved) {
+                std::vector<unsigned> low = check_low(solution, ref_mg);
+                if (low.size() > 0) {
+                    for (unsigned prn_id : low) {
+                        unsigned prn_index = prn_id - 1;
+                        ref_mg.refined_measurements[prn_index].is_present = false;
+                    }
+                    solution = calculate_solution(ref_mg);
+                }
             }
-
-            solution = calculate_solution(ref_mg);
-            if (!solution.is_solved) continue;
         }
 
         solution_states.push_back(solution);
-
     }
    
     error_type = '0';
@@ -82,11 +90,18 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
     RefinedMeasurement ref_m1 = apply_clock_and_relativistic_errors(raw_m, 1);
     RefinedMeasurement ref_m2 = apply_clock_and_relativistic_errors(raw_m, 2);
 
-    double phi = ref_m1.pseudorange / c * earth_rotation_rate;
-    Matrix rot = rotation(-phi, 'z');
-    std::vector<double> gps_position = rot * ref_m1.gps_position;
-    
-    double pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
+    double pseudorange = ref_m1.pseudorange;
+    std::vector<double> gps_position = ref_m1.gps_position;
+
+    if (error_type != 's') {
+        double phi = ref_m1.pseudorange / c * earth_rotation_rate;
+        Matrix rot = rotation(-phi, 'z');
+        gps_position = rot * gps_position;
+    }
+
+    if (error_type != 'I') {
+        double pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
+    }
     double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
 
     return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position};
@@ -119,8 +134,10 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
 
     GPSState gs = handler.get_state(raw_m.prn_id, raw_m.time - delay);
 
-    double relativistic_error = gs.relativistic_error;
-    delay += relativistic_error;
+    if (error_type != 'R') {
+        double relativistic_error = gs.relativistic_error;
+        delay += relativistic_error;
+    }
 
     return {true, raw_m.time, raw_m.prn_id, delay * c, 0, gs.position};
 }
@@ -287,6 +304,26 @@ const State& SatNav::get_true_state_at(unsigned time) {
     }
 
     return empty_state;
+}
+
+const SolutionState& SatNav::get_solution_state_at(unsigned time) const {
+    unsigned n = solution_states.size();
+
+    unsigned lo = 0, hi = n - 1;
+    while (lo <= hi) {
+        unsigned mid = lo + (hi - lo) / 2;
+        if (solution_states[mid].time == time) {
+            return solution_states[mid];
+        }
+
+        if (solution_states[mid].time < time) {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    return empty_solution_state;
 }
 
 const std::vector<SolutionState>& SatNav::get_solution_states() const {
