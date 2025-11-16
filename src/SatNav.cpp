@@ -18,12 +18,14 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мал
     for (auto raw_mg_it = raw_measurements_groupped.begin();
          raw_mg_it != raw_measurements_groupped.end();
          raw_mg_it++) {
-
+        
         RawMeasurementGroupped raw_mg = *raw_mg_it;
 
         if ((ti > 0 || tf > 0) && (raw_mg.time < ti || raw_mg.time > tf)) {
             continue;
         }
+
+        // logger.log("t = " + std::to_string(raw_mg.time));
 
         std::vector<RefinedMeasurement> ref_ms(32);
 
@@ -45,6 +47,7 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мал
                     continue;
                 }
             }
+            
             if (error_type != 'F') {
                 if (check_fading(raw_m, raw_mg_it)) {
                     continue;
@@ -77,7 +80,10 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мал
                 }
             }
         }
-
+        // if (!solution.is_solved) {
+        //     logger.log("Failed due to " + std::string(1, solution.failure_type));
+        //     if (solution.failure_type == 'G') logger.log("GDOP = " + std::to_string(solution.GDOP));
+        // }
         solution_states.push_back(solution);
     }
    
@@ -100,7 +106,7 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
     }
 
     if (error_type != 'I') {
-        double pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
+        pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
     }
     double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
 
@@ -144,6 +150,7 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
 
 SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_mg) const {
     SolutionState solution;
+    solution.time = ref_mg.time;
 
     std::vector<double> PR;
     std::vector<std::vector<double>> X;
