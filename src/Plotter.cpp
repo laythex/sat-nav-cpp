@@ -1,7 +1,7 @@
 #include "Plotter.hpp"
 
-Plotter::Plotter(const SatNav& sn) : problem(sn), problem_copy(sn) {
-    problem.solve();
+Plotter::Plotter(const SatNav& sn, unsigned ti, unsigned tf) : problem(sn), problem_copy(sn), ti(ti), tf(tf) {
+    problem.solve('0', ti, tf);
 }
 
 void Plotter::plot_errors_norm(double ymin, double ymax) {
@@ -63,7 +63,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 }
 
 void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
-    problem_copy.solve('I');
+    problem_copy.solve('I', ti, tf);
 
     std::string filename = "errors-" + error_names[error_type];
     std::ofstream file;
@@ -89,14 +89,42 @@ void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
     run_py_plotter(filename);
 }
 
-void Plotter::plot_map_iono() {
-    problem_copy.solve('I');
+void Plotter::plot_map_norm(const std::string& mode, double threshold) {
+    problem_copy.solve('I', ti, tf);
+
+    std::string filename = "map-norm";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Ошибка модуля решения" << '\t' << mode << std::endl;
+    file << threshold << std::endl;
+    
+    for (const auto& ss : problem.get_solution_states()) {
+        if (!ss.is_solved) continue;
+
+        unsigned time = ss.time;
+        State ts = problem.get_true_state_at(time);
+
+        std::vector<double> geo_coords = ECEF_to_geographycal(ss.position);
+        double error_norm = log(abs(ss.position - ts.position));
+
+        file << geo_coords[0] << sep << geo_coords[1] << sep << error_norm << std::endl;
+    }
+
+    file.close();
+
+    run_py_mapper(filename);
+}
+
+void Plotter::plot_map_iono(const std::string& mode, double threshold) {
+    problem_copy.solve('I', ti, tf);
 
     std::string filename = "map-iono";
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Ионосферная ошибка" << std::endl;
+    file << "Ионосферная ошибка" << '\t' << mode << std::endl;
+    file << threshold << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
         if (!ss.is_solved) continue;
@@ -113,7 +141,7 @@ void Plotter::plot_map_iono() {
 
     file.close();
 
-    // run_py_plotter(filename);
+    run_py_mapper(filename);
 }
 
 void Plotter::run_py_plotter(const std::string& arg) const {
@@ -121,8 +149,8 @@ void Plotter::run_py_plotter(const std::string& arg) const {
     system(command.c_str());
 }
 
-void Plotter::run_py_map_plotter(const std::string& arg) const {
-    std::string command = "python3 ../scripts/map-plotter.py " + arg;
+void Plotter::run_py_mapper(const std::string& arg) const {
+    std::string command = "python3 ../scripts/mapper.py " + arg;
     system(command.c_str());
 }
 
@@ -134,8 +162,8 @@ std::vector<double> Plotter::ECEF_to_geographycal(const std::vector<double>& pos
     double z = position[2];
     double r = sqrt(x * x + y * y + z * z);
 
-    latitude = asin(z / r) * 180.0 * M_1_PI;
     longitude = atan2(x, y) * 180.0 * M_1_PI;
+    latitude = asin(z / r) * 180.0 * M_1_PI;
 
-    return {latitude, longitude};  
+    return {longitude, latitude};  
 }

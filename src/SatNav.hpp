@@ -54,7 +54,7 @@ private:
     double mask_angle = 5;
     unsigned fadeout_time = 20;
     double SNR_threshold = 30;
-    double hatch_constant = 0.1;
+    double hatch_constant = 1.0 / 30.0;
 
     char error_type = '0';
 };

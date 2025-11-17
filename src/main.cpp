@@ -11,9 +11,8 @@ int main() {
     // GPSHandler handler = GPSHandler("brdc0940.24n"); SatNav problem = SatNav("GNV1B_2024-04-03_C_04.txt", "GPS1B_2024-04-03_C_04.txt", handler);
 
     Plotter plotter(problem);
-    plotter.plot_errors_norm(0, 30);
+    plotter.plot_errors_norm(0, 10);
     plotter.plot_errors_pr();
-    plotter.plot_map_iono();
 
     return 0;
 }

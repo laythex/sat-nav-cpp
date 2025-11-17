@@ -8,8 +8,8 @@ data_path = f'../results/{args[1]}.csv'
 plot_path = f'../plots/{args[1]}.png'
 
 with open(data_path) as header:
-    title, x_label, y_label = header.readline().split('\t')
-    y_min, y_max = map(float, header.readline().split('\t'))
+    title, x_label, y_label = header.readline().rstrip().split('\t')
+    y_min, y_max = map(float, header.readline().rstrip().split('\t'))
 
 data = pd.read_csv(data_path, skiprows=2)
 

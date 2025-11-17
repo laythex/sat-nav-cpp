@@ -11,16 +11,17 @@
 
 class Plotter {
 public:
-    Plotter(const SatNav& sn);
+    Plotter(const SatNav& sn, unsigned ti = 0, unsigned tf = 0);
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_pr(double ymin = 0, double ymax = 0);
     void plot_errors_by_type(char error_type, double ymin = 0, double ymax = 0);
 
-    void plot_map_iono();
+    void plot_map_norm(const std::string& mode, double threshold = 0);
+    void plot_map_iono(const std::string& mode, double threshold = 0);
 
 private:
     void run_py_plotter(const std::string& arg) const;
-    void run_py_map_plotter(const std::string& arg) const;
+    void run_py_mapper(const std::string& arg) const;
 
     std::vector<double> ECEF_to_geographycal(const std::vector<double>& position); // сделать отдельную структура гео координат
 
@@ -28,6 +29,8 @@ private:
     SatNav problem_copy;
 
     char sep = ',';
+    
+    unsigned ti, tf;
 
     std::map<char, std::string> error_names = {
         {'F', "fading"},
