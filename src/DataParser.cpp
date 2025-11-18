@@ -17,7 +17,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
         std::stringstream stream(line);
 
         std::getline(stream, line, ' ');
-        unsigned user_time = std::stoi(line);
+        unsigned gps_time = std::stoi(line);
 
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -42,7 +42,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
 
         std::vector<double> position = {xpos, ypos, zpos};
         std::vector<double> velocity = {xvel, yvel, zvel};
-        true_states.push_back({user_time, position, velocity});
+        true_states.push_back({gps_time, position, velocity});
     }
 
     file.close();
@@ -53,7 +53,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
 std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std::string& filename) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
-    unsigned user_time_current = 0;
+    unsigned gps_time_current = 0;
     
     std::ifstream file;
     file.open("../data/gps/" + filename, std::ios::in);
@@ -70,7 +70,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
 
         std::getline(stream, line, ' ');
 
-        unsigned user_time = std::stoi(line);
+        unsigned gps_time = std::stoi(line);
     
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -129,25 +129,105 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
         double L2_SNR = std::stod(line);
 
         RawMeasurement raw_m = {true,
-                                user_time, prn_id,
+                                gps_time, prn_id,
                                 L1_range, L2_range,
                                 L1_phase, L2_phase,
                                 L1_SNR, L2_SNR,
                                 qualflg};
 
-        if (user_time_current == 0) user_time_current = user_time;
+        if (gps_time_current == 0) gps_time_current = gps_time;
 
-        if (user_time != user_time_current) {
-            raw_mgs.push_back({user_time_current, raw_ms});
+        if (gps_time != gps_time_current) {
+            raw_mgs.push_back({gps_time_current, raw_ms});
             
             raw_ms.clear();
             raw_ms.resize(32);
 
-            user_time_current = user_time;
+            gps_time_current = gps_time;
         }
 
         unsigned prn_index = prn_id - 1;
         raw_ms[prn_index] = raw_m;
+    }
+
+    file.close();
+
+    return raw_mgs;
+}
+
+std::vector<State> DataParser::load_grace_gnv_data(const std::string& filename) {
+    std::vector<State> true_states;
+
+    std::ifstream file;
+    file.open("../data/gnv/" + filename, std::ios::binary);
+
+    std::string line;
+    unsigned skiprows = 26;
+    for (unsigned i = 0; i < skiprows; ++i) {
+        std::getline(file, line);
+    }
+
+    char record[103];
+    while (!file.eof()) {
+        file.read(record, 4);
+        int gps_time = char_to_int_end(record);
+
+        file.read(record, 2);
+
+        file.read(record, 8);
+        double xpos = char_to_double_end(record);
+        file.read(record, 8);
+        double ypos = char_to_double_end(record);
+        file.read(record, 8);
+        double zpos = char_to_double_end(record);
+
+        file.read(record, 24);
+
+        file.read(record, 8);
+        double xvel = char_to_double_end(record);
+        file.read(record, 8);
+        double yvel = char_to_double_end(record);
+        file.read(record, 8);
+        double zvel = char_to_double_end(record);
+
+        file.read(record, 25);
+
+        std::vector<double> position = {xpos, ypos, zpos};
+        std::vector<double> velocity = {xvel, yvel, zvel};
+        true_states.push_back({static_cast<unsigned>(gps_time), position, velocity}); // сделать все время интами
+    }
+
+    file.close();
+
+    true_states.pop_back(); // мда
+    return true_states;
+}
+
+std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::string& filename) {
+    std::vector<RawMeasurementGroupped> raw_mgs;
+    std::vector<RawMeasurement> raw_ms(32);
+    unsigned gps_time_current = 0;
+    
+    std::ifstream file;
+    file.open("../data/gps/" + filename, std::ios::binary);
+
+    std::string line;
+    unsigned skiprows = 24;
+    for (unsigned i = 0; i < skiprows; ++i) {
+        std::getline(file, line);
+    }
+
+    char record[103];
+    while (!file.eof()) {
+        file.read(record, 4);
+        int gps_time = char_to_int_end(record); // сделать микросекунды?
+
+        file.read(record, 5);
+
+        file.read(record, 1);
+        unsigned prn_id = static_cast<unsigned>(char_to_int_end(record));
+        std::cout << prn_id << std::endl;
+    
     }
 
     file.close();
@@ -234,4 +314,26 @@ void DataParser::load_brdc_data(const std::string& filename,
     }
 
     file.close();
+}
+
+double DataParser::char_to_double_end(const char* ch) {
+    size_t n = sizeof(double);
+    char res_ch[n];
+
+    for (unsigned i = 0; i < n; i++) {
+        res_ch[n - i - 1] = ch[i];
+    }
+
+    return *reinterpret_cast<double*>(res_ch);
+}
+
+double DataParser::char_to_int_end(const char* ch) {
+    size_t n = sizeof(int);
+    char res_ch[n];
+
+    for (unsigned i = 0; i < n; i++) {
+        res_ch[n - i - 1] = ch[i];
+    }
+
+    return *reinterpret_cast<int*>(res_ch);
 }
