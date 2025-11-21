@@ -1,13 +1,13 @@
 #include "Structures.hpp"
 
 State::State() : time(0), position(3, 0), velocity(3, 0) {}
-State::State(unsigned time, 
+State::State(int time, 
              const std::vector<double>& position,
              const std::vector<double>& velocity) :
              time(time), position(position), velocity(velocity) {}
 
 GPSState::GPSState() : State(), relativistic_error(0) {}
-GPSState::GPSState(unsigned time, 
+GPSState::GPSState(int time, 
                    const std::vector<double>& position,
                    const std::vector<double>& velocity,
                    double relativistic_error) :
@@ -15,7 +15,7 @@ GPSState::GPSState(unsigned time,
                    relativistic_error(relativistic_error) {}
 
 SolutionState::SolutionState() : State(), is_solved(false), failure_type('0'), GDOP(0) {}
-SolutionState::SolutionState(unsigned time, 
+SolutionState::SolutionState(int time, 
                              const std::vector<double>& position,
                              const std::vector<double>& velocity,
                              bool is_solved, char failure_type, double GDOP) :
@@ -29,10 +29,10 @@ RawMeasurement::RawMeasurement() : is_present(false),
                                    L1_SNR(0), L2_SNR(0),
                                    qualflg(0) {}
 RawMeasurement::RawMeasurement(bool is_present,
-                               unsigned time, unsigned prn_id,
+                               int time, unsigned prn_id,
                                double L1_range, double L2_range,
                                double L1_phase, double L2_phase,
-                               double L1_SNR, double L2_SNR,
+                               unsigned short L1_SNR, unsigned short L2_SNR,
                                unsigned qualflg) : 
                                is_present(is_present),
                                time(time), prn_id(prn_id), 
@@ -45,19 +45,19 @@ RefinedMeasurement::RefinedMeasurement() : is_present(false),
                                            time(0), prn_id(0), pseudorange(0), carrier_phase(0),
                                            gps_position(32, 0) {}
 RefinedMeasurement::RefinedMeasurement(bool is_present, 
-                                       unsigned time, unsigned prn_id, double pseudorange, double carrier_phase,
+                                       int time, unsigned prn_id, double pseudorange, double carrier_phase,
                                        const std::vector<double>& gps_position) : 
                                        is_present(is_present), 
                                        time(time), prn_id(prn_id), pseudorange(pseudorange), carrier_phase(carrier_phase),
                                        gps_position(gps_position) {}
 
-RawMeasurementGroupped::RawMeasurementGroupped() : time(0), raw_measurements(32) {}
-RawMeasurementGroupped::RawMeasurementGroupped(unsigned time,
+RawMeasurementGroupped::RawMeasurementGroupped() : time(-1), raw_measurements(32) {}
+RawMeasurementGroupped::RawMeasurementGroupped(int time,
                                                const std::vector<RawMeasurement>& raw_measurements) :
                                                time(time), raw_measurements(raw_measurements) {}
 
 
-RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(0), refined_measurements(32) {}
-RefinedMeasurementGroupped::RefinedMeasurementGroupped(unsigned time,
+RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(-1), refined_measurements(32) {}
+RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}

@@ -1,60 +1,46 @@
 #include "SatNav.hpp"
+#include "SatNavRel.hpp"
 
 SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename, 
                const GPSHandler& handler) : handler(handler) {
-    true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
-    raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
+    char sat_gnv = gnv_filename[17];
+    char sat_gps = gps_filename[17];
+
+    if (sat_gnv != sat_gps) {
+        logger.log("Satellites in GNV and GPS don`t match");
+        return;
+    }
+
+    if (sat_gnv == 'A' || sat_gnv == 'B') {
+        true_states = DataParser::load_grace_gnv_data(gnv_filename);
+        raw_measurements_groupped = DataParser::load_grace_gps_data(gps_filename);
+    }
+    if (sat_gnv == 'C' || sat_gnv == 'D') {
+        true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
+        raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
+    }
 }
 
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped) { }
 
-void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мало точек, надо разобраться
-    logger.log("Beginning to solve...");
+void SatNav::solve(char et, int ti, int tf) {
+    logger.log("Beginning to solve..."); // доделать логгер
 
     error_type = et;
 
-    for (auto raw_mg_it = raw_measurements_groupped.begin();
-         raw_mg_it != raw_measurements_groupped.end();
-         raw_mg_it++) {
-        
-        RawMeasurementGroupped raw_mg = *raw_mg_it;
-
-        if ((ti > 0 || tf > 0) && (raw_mg.time < ti || raw_mg.time > tf)) {
-            continue;
-        }
-
-        // logger.log("t = " + std::to_string(raw_mg.time));
+    for (const auto& raw_mg : raw_measurements_groupped) {
+        if ((ti > 0 || tf > 0) && (raw_mg.time < ti || raw_mg.time > tf)) continue;
 
         std::vector<RefinedMeasurement> ref_ms(32);
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
             unsigned prn_index = prn_id - 1;
 
-            RawMeasurement raw_m = raw_mg.raw_measurements[prn_index];
+            if (!check_raw(raw_mg.raw_measurements[prn_index])) continue;
 
-            if (!raw_m.is_present) {
-                continue;
-            }
-
-            if (raw_m.qualflg != 0) {
-                continue;
-            }
-
-            if (error_type != 'S') {
-                if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
-                    continue;
-                }
-            }
-            
-            if (error_type != 'F') {
-                if (check_fading(raw_m, raw_mg_it)) {
-                    continue;
-                }
-            }
-
-            RefinedMeasurement ref_m = refine_raw(raw_m);
+            RefinedMeasurement ref_m = refine_raw(raw_mg.raw_measurements[prn_index]);
 
             if (error_type != 'H') {
                 ref_m = hatch_filter(ref_m);
@@ -80,16 +66,37 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {     // Очень мал
                 }
             }
         }
-        // if (!solution.is_solved) {
-        //     logger.log("Failed due to " + std::string(1, solution.failure_type));
-        //     if (solution.failure_type == 'G') logger.log("GDOP = " + std::to_string(solution.GDOP));
-        // }
+
         solution_states.push_back(solution);
     }
    
     error_type = '0';
 
     logger.log("Finished solving");
+}
+
+bool SatNav::check_raw(const RawMeasurement& raw_m) {
+    if (!raw_m.is_present) {
+        return false;
+    }
+
+    if (raw_m.qualflg != 0) {
+        return false;
+    }
+
+    if (error_type != 'S') {
+        if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
+            return false;
+        }
+    }
+
+    if (error_type != 'F') {
+        if (check_fading(raw_m)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
@@ -154,7 +161,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
 
     std::vector<double> PR;
     std::vector<std::vector<double>> X;
-    unsigned n = 0;
+    size_t n = 0;
 
     for (const auto& ref_m : ref_mg.refined_measurements) {
         if (ref_m.is_present) {
@@ -172,12 +179,12 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     Matrix B(n, 4, 1.0);
 
     while (true) {
-        for (unsigned i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
             std::vector<double> DX = X[i] - x;
             double D = abs(DX);
 
             U[i] = PR[i] - D;
-            for (unsigned j = 0; j < 3; j++) {
+            for (size_t j = 0; j < 3; j++) {
                 B.at(i, j) = DX[j] / D;
             }
         }
@@ -221,17 +228,18 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     return solution;
 }
 
-bool SatNav::check_fading(const RawMeasurement& raw_m,
-                  const std::vector<RawMeasurementGroupped>::iterator& raw_mg_it) {
-    unsigned t0 = raw_m.time;
+bool SatNav::check_fading(const RawMeasurement& raw_m) {
+    int t0 = raw_m.time;
     unsigned prn_index = raw_m.prn_id - 1;
+    
+    auto raw_mg_it = get_raw_measurement_groupped_iterator(t0);
 
     auto it_fwd = raw_mg_it;
     while(true) {
         it_fwd++;
         if (it_fwd == raw_measurements_groupped.end()) return true;
 
-        unsigned t = it_fwd->time;
+        int t = it_fwd->time;
         if (t - t0 > fadeout_time) break;
 
         if (!it_fwd->raw_measurements[prn_index].is_present) return true;
@@ -239,13 +247,13 @@ bool SatNav::check_fading(const RawMeasurement& raw_m,
 
     auto it_bwd = raw_mg_it;
     while(true) {
-        if (it_fwd == raw_measurements_groupped.begin()) return true;
-        it_fwd--;
+        if (it_bwd == raw_measurements_groupped.begin()) return true;
+        it_bwd--;
 
-        unsigned t = it_fwd->time;
+        int t = it_bwd->time;
         if (t0 - t > fadeout_time) break;
 
-        if (!it_fwd->raw_measurements[prn_index].is_present) return true;
+        if (!it_bwd->raw_measurements[prn_index].is_present) return true;
     }
     
     return false;
@@ -292,15 +300,43 @@ RefinedMeasurement SatNav::hatch_filter(const RefinedMeasurement& ref_m) {
     return ref_m_hatch;
 }
 
-const State& SatNav::get_true_state_at(unsigned time) {
-    unsigned n = true_states.size();
+const State& SatNav::get_true_state_at(int time) const {
+    return *get_true_state_iterator(time);
+}
 
-    unsigned lo = 0, hi = n - 1;
+const SolutionState& SatNav::get_solution_state_at(int time) const {
+    return *get_solution_state_iterator(time);
+}
+
+const RawMeasurementGroupped& SatNav::get_raw_measurement_groupped_at(int time) const {
+    return *get_raw_measurement_groupped_iterator(time);
+}
+
+const std::vector<State>& SatNav::get_true_states() const {
+    return true_states;
+}
+
+const std::vector<SolutionState> &SatNav::get_solution_states() const {
+    return solution_states;
+}
+
+const std::vector<RawMeasurementGroupped>& SatNav::get_raw_measurements_groupped() const {
+    return raw_measurements_groupped;
+}
+
+const std::vector<RefinedMeasurementGroupped>& SatNav::get_refined_measurements_groupped() const {
+    return refined_measurements_groupped;
+}
+
+std::vector<State>::const_iterator SatNav::get_true_state_iterator(int time) const {
+    size_t n = true_states.size();
+
+    size_t lo = 0, hi = n - 1;
     while (lo <= hi) {
-        unsigned mid = lo + (hi - lo) / 2;
+        size_t mid = lo + (hi - lo) / 2;
 
         if (true_states[mid].time == time) {
-            return true_states[mid];
+            return true_states.cbegin() + mid;
         }
 
         if (true_states[mid].time < time) {
@@ -310,17 +346,17 @@ const State& SatNav::get_true_state_at(unsigned time) {
         }
     }
 
-    return empty_state;
+    return true_states.cend();
 }
 
-const SolutionState& SatNav::get_solution_state_at(unsigned time) const {
-    unsigned n = solution_states.size();
+std::vector<SolutionState>::const_iterator SatNav::get_solution_state_iterator(int time) const {
+    size_t n = solution_states.size();
 
-    unsigned lo = 0, hi = n - 1;
+    size_t lo = 0, hi = n - 1;
     while (lo <= hi) {
-        unsigned mid = lo + (hi - lo) / 2;
+        size_t mid = lo + (hi - lo) / 2;
         if (solution_states[mid].time == time) {
-            return solution_states[mid];
+            return solution_states.begin() + mid;
         }
 
         if (solution_states[mid].time < time) {
@@ -330,13 +366,25 @@ const SolutionState& SatNav::get_solution_state_at(unsigned time) const {
         }
     }
 
-    return empty_solution_state;
+    return solution_states.end();
 }
 
-const std::vector<SolutionState>& SatNav::get_solution_states() const {
-    return solution_states;
-}
+std::vector<RawMeasurementGroupped>::const_iterator SatNav::get_raw_measurement_groupped_iterator(int time) const {
+    size_t n = raw_measurements_groupped.size();
 
-const std::vector<RefinedMeasurementGroupped>& SatNav::get_refined_measurements_groupped() const {
-    return refined_measurements_groupped;
+    size_t lo = 0, hi = n - 1;
+    while (lo <= hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if (raw_measurements_groupped[mid].time == time) {
+            return raw_measurements_groupped.cbegin() + mid;
+        }
+
+        if (raw_measurements_groupped[mid].time < time) {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    return raw_measurements_groupped.cend();
 }
