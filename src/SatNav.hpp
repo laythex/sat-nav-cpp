@@ -19,7 +19,7 @@ public:
     SatNav(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
-    void solve(char et = '0', int ti = 0, int tf = 0);
+    void solve(char et = '0', double ti = 0, double tf = 0);
 
     const State& get_true_state_at(int time) const;
     const SolutionState& get_solution_state_at(int time) const;
@@ -41,7 +41,7 @@ private:
     std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
 
-    std::vector<State>::const_iterator get_true_state_iterator(int time) const;
+    std::vector<State>::const_iterator get_true_state_iterator(int time) const; // темплейт?
     std::vector<SolutionState>::const_iterator get_solution_state_iterator(int time) const;
     std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(int time) const;
 

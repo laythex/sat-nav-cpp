@@ -1,9 +1,13 @@
 #include "SatNavRel.hpp"
 #include "SatNav.hpp"
 
-SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active) {}
+SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active) {
+    pas.solve(); // решать одновременно?
 
-void SatNavRel::solve_relative(char et = '0', int ti = 0, int tf = 0) {
+    // тру стейтс
+}
+
+void SatNavRel::solve_relative(char et, int ti, int tf) {
 
     error_type = et;
 
@@ -45,7 +49,7 @@ void SatNavRel::solve_relative(char et = '0', int ti = 0, int tf = 0) {
         //     }
         // }
 
-        // solution_states.push_back(solution);
+        solution_states.push_back(solution);
     }
    
     error_type = '0';
@@ -64,6 +68,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     SolutionState solution;
     solution.time = ref_mg.time;
 
+    std::vector<double> solution_pas = pas.get_solution_state_at(ref_mg.time).position;
     std::vector<double> dPR;
     std::vector<std::vector<double>> X;
     size_t n = 0;
@@ -81,10 +86,65 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     for (size_t i = 0; i < n; i++) {
         size_t j = i < n - 1 ? i + 1 : 0;
+        std::vector<double> DXi = X[i] - solution_pas;
+        std::vector<double> DXj = X[j] - solution_pas;
+        double Di = abs(DXi);
+        double Dj = abs(DXj);
 
-        U[i] = 0;
+        //delta
+
+        U[i] = dPR[i] - dPR[j];
         for (size_t k = 0; k < 3; k++) {
-            B.at(i, k) = 0;
+            B.at(i, k) = DXi[k] / Di -  DXj[k] / Dj;
         }
     }
+
+    Matrix B1(3, 3);
+    try {
+        B1 = (B.transpose() * B).inverse();
+    } catch (std::runtime_error re) {
+        solution.is_solved = false;
+        solution.failure_type = 'I';
+        return solution;
+    }
+
+    // GDOP
+
+    std::vector<double> dX = B1 * B.transpose() * U;
+
+    std::cout << abs(dX) << std::endl;
+
+    solution.position = dX;
+    solution.is_solved = true;
+
+    return solution;
+}
+
+const State& SatNavRel::get_true_state_at(int time) const {
+    return *get_true_state_iterator(time);
+}
+
+const std::vector<SolutionState>& SatNavRel::get_solution_states() const {
+    return solution_states;
+}
+
+std::vector<State>::const_iterator SatNavRel::get_true_state_iterator(int time) const {
+    size_t n = true_states.size();
+
+    size_t lo = 0, hi = n - 1;
+    while (lo <= hi) {
+        size_t mid = lo + (hi - lo) / 2;
+
+        if (true_states[mid].time == time) {
+            return true_states.cbegin() + mid;
+        }
+
+        if (true_states[mid].time < time) {
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    return true_states.cend();
 }

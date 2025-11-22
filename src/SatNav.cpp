@@ -25,7 +25,7 @@ SatNav::SatNav(const SatNav& sn) : handler(sn.handler),
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped) { }
 
-void SatNav::solve(char et, int ti, int tf) {
+void SatNav::solve(char et, double ti, double tf) {
     logger.log("Beginning to solve..."); // доделать логгер
 
     error_type = et;
@@ -184,8 +184,8 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
             double D = abs(DX);
 
             U[i] = PR[i] - D;
-            for (size_t j = 0; j < 3; j++) {
-                B.at(i, j) = DX[j] / D;
+            for (size_t k = 0; k < 3; k++) {
+                B.at(i, k) = DX[k] / D;
             }
         }
         
@@ -221,7 +221,6 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
         c_tau = dX_c_tau;
     }
 
-    solution.time = ref_mg.time;
     solution.position = x;
     solution.is_solved = true;
 
@@ -316,7 +315,7 @@ const std::vector<State>& SatNav::get_true_states() const {
     return true_states;
 }
 
-const std::vector<SolutionState> &SatNav::get_solution_states() const {
+const std::vector<SolutionState>& SatNav::get_solution_states() const {
     return solution_states;
 }
 

@@ -1,6 +1,6 @@
 #include "Plotter.hpp"
 
-Plotter::Plotter(const SatNav& sn, unsigned ti, unsigned tf) : problem(sn), problem_copy(sn), ti(ti), tf(tf) {
+Plotter::Plotter(const SatNav& sn, double ti, double tf) : problem(sn), problem_copy(sn), ti(ti), tf(tf) {
     problem.solve('0', ti, tf);
 }
 

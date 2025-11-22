@@ -11,7 +11,7 @@
 
 class Plotter {
 public:
-    Plotter(const SatNav& sn, unsigned ti = 0, unsigned tf = 0);
+    Plotter(const SatNav& sn, double ti = 0, double tf = 0);
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_pr(double ymin = 0, double ymax = 0);
     void plot_errors_by_type(char error_type, double ymin = 0, double ymax = 0);
@@ -23,7 +23,7 @@ private:
     void run_py_plotter(const std::string& arg) const;
     void run_py_mapper(const std::string& arg) const;
 
-    std::vector<double> ECEF_to_geographycal(const std::vector<double>& position); // сделать отдельную структура гео координат
+    std::vector<double> ECEF_to_geographycal(const std::vector<double>& position); // сделать отдельную структуру гео координат?
 
     SatNav problem;
     SatNav problem_copy;
