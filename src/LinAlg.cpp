@@ -25,6 +25,10 @@ double& Matrix::at(size_t i, size_t j) {
     return data[i][j];
 }
 
+std::vector<double>& Matrix::at(size_t i) {
+    return data[i];
+}
+
 Matrix Matrix::operator+(const Matrix& other) const {
     Matrix res = Matrix(rows, cols);
 
@@ -221,6 +225,10 @@ std::vector<double> operator*(const std::vector<double>& a, double x) {
     }
 
     return res;
+}
+
+double operator*(const std::vector<double>& a, const std::vector<double>& b) {
+    return dot(a, b);
 }
 
 std::vector<double> operator/(const std::vector<double>& a, double x) {

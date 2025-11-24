@@ -16,7 +16,10 @@ void Plotter::plot_errors_norm(double ymin, double ymax) {
         if (!ss.is_solved) continue;
 
         unsigned time = ss.time;
-        State ts = problem.get_true_state_at(time);
+
+        auto ts_it = problem.get_true_state_iterator(time);
+        if (ts_it == problem.get_true_states().end()) continue;
+        State ts = *ts_it;
 
         double error_norm = abs(ss.position - ts.position);
 
@@ -38,7 +41,10 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 
     for (const auto& ref_mg : problem.get_refined_measurements_groupped()) {
         unsigned time = ref_mg.time;
-        State ts = problem.get_true_state_at(time);
+
+        auto ts_it = problem.get_true_state_iterator(time);
+        if (ts_it == problem.get_true_states().end()) continue;
+        State ts = *ts_it;
 
         file << time << sep;
 
@@ -76,7 +82,11 @@ void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
         if (!ss.is_solved) continue;
 
         unsigned time = ss.time;
-        SolutionState copy_ss = problem_copy.get_solution_state_at(time);
+
+        auto copy_ss_it = problem.get_solution_state_iterator(time);
+        if (copy_ss_it == problem.get_solution_states().end()) continue;
+        SolutionState copy_ss = *copy_ss_it;
+
         if (!copy_ss.is_solved) continue;
 
         double error_norm = abs(ss.position - copy_ss.position);
@@ -103,7 +113,10 @@ void Plotter::plot_map_norm(const std::string& mode, double threshold) {
         if (!ss.is_solved) continue;
 
         unsigned time = ss.time;
-        State ts = problem.get_true_state_at(time);
+
+        auto ts_it = problem.get_true_state_iterator(time);
+        if (ts_it == problem.get_true_states().end()) continue;
+        State ts = *ts_it;
 
         std::vector<double> geo_coords = ECEF_to_geographycal(ss.position);
         double error_norm = log(abs(ss.position - ts.position));
@@ -130,7 +143,11 @@ void Plotter::plot_map_iono(const std::string& mode, double threshold) {
         if (!ss.is_solved) continue;
 
         unsigned time = ss.time;
-        SolutionState copy_ss = problem_copy.get_solution_state_at(time);
+        
+        auto copy_ss_it = problem.get_solution_state_iterator(time);
+        if (copy_ss_it == problem.get_solution_states().end()) continue;
+        SolutionState copy_ss = *copy_ss_it;
+
         if (!copy_ss.is_solved) continue;
 
         std::vector<double> geo_coords = ECEF_to_geographycal(ss.position);

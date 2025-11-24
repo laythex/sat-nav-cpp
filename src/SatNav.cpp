@@ -23,15 +23,22 @@ SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename,
 
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
-                                   raw_measurements_groupped(sn.raw_measurements_groupped) { }
+                                   raw_measurements_groupped(sn.raw_measurements_groupped) {}
 
 void SatNav::solve(char et, double ti, double tf) {
     logger.log("Beginning to solve..."); // доделать логгер
 
     error_type = et;
 
+    size_t raw_mg_cnt = 0;
+    size_t raw_mg_size = raw_measurements_groupped.size();
     for (const auto& raw_mg : raw_measurements_groupped) {
-        if ((ti > 0 || tf > 0) && (raw_mg.time < ti || raw_mg.time > tf)) continue;
+        
+        if (ti > 0 || tf > 0) {
+            double t = static_cast<double>(raw_mg_cnt) / static_cast<double>(raw_mg_size);
+            if (t < ti || t >= tf) continue;
+            raw_mg_cnt++;
+        }
 
         std::vector<RefinedMeasurement> ref_ms(32);
 
@@ -117,7 +124,7 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
     }
     double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
 
-    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position};
+    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position, {0, 0, 0}};
 }
 
 RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurement& raw_m, unsigned frequency) {
@@ -152,7 +159,7 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
         delay += relativistic_error;
     }
 
-    return {true, raw_m.time, raw_m.prn_id, delay * c, 0, gs.position};
+    return {true, raw_m.time, raw_m.prn_id, delay * c, 0, gs.position, {0, 0, 0}};
 }
 
 SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_mg) const {
@@ -299,18 +306,6 @@ RefinedMeasurement SatNav::hatch_filter(const RefinedMeasurement& ref_m) {
     return ref_m_hatch;
 }
 
-const State& SatNav::get_true_state_at(int time) const {
-    return *get_true_state_iterator(time);
-}
-
-const SolutionState& SatNav::get_solution_state_at(int time) const {
-    return *get_solution_state_iterator(time);
-}
-
-const RawMeasurementGroupped& SatNav::get_raw_measurement_groupped_at(int time) const {
-    return *get_raw_measurement_groupped_iterator(time);
-}
-
 const std::vector<State>& SatNav::get_true_states() const {
     return true_states;
 }
@@ -326,7 +321,7 @@ const std::vector<RawMeasurementGroupped>& SatNav::get_raw_measurements_groupped
 const std::vector<RefinedMeasurementGroupped>& SatNav::get_refined_measurements_groupped() const {
     return refined_measurements_groupped;
 }
-
+// темплейт бинарного поиска
 std::vector<State>::const_iterator SatNav::get_true_state_iterator(int time) const {
     size_t n = true_states.size();
 

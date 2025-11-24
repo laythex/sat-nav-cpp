@@ -21,14 +21,14 @@ public:
 
     void solve(char et = '0', double ti = 0, double tf = 0);
 
-    const State& get_true_state_at(int time) const;
-    const SolutionState& get_solution_state_at(int time) const;
-    const RawMeasurementGroupped& get_raw_measurement_groupped_at(int time) const;
-
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;
     const std::vector<RawMeasurementGroupped>& get_raw_measurements_groupped() const;
     const std::vector<RefinedMeasurementGroupped>& get_refined_measurements_groupped() const;
+
+    std::vector<State>::const_iterator get_true_state_iterator(int time) const;
+    std::vector<SolutionState>::const_iterator get_solution_state_iterator(int time) const;
+    std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(int time) const;
 
     friend class SatNavRel;
 
@@ -41,10 +41,6 @@ private:
     std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
 
-    std::vector<State>::const_iterator get_true_state_iterator(int time) const; // темплейт?
-    std::vector<SolutionState>::const_iterator get_solution_state_iterator(int time) const;
-    std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(int time) const;
-
     GPSHandler handler;
 
     std::vector<State> true_states;
@@ -54,16 +50,16 @@ private:
 
     Logger logger;
 
-    double c = 2.99792458e8;
-    double earth_rotation_rate = 7.2921151467e-5;
-    double C1 = 2.54572778016;
-    double C2 = -1.54572778016;
-
-    double GDOP0 = 5;
-    double mask_angle = 5;
-    int fadeout_time = 20;
-    double SNR_threshold = 30;
-    double hatch_constant = 1.0 / 30.0;
-
     char error_type = '0';
+
+    const double c = 2.99792458e8;
+    const double earth_rotation_rate = 7.2921151467e-5;
+    const double C1 = 2.54572778016;
+    const double C2 = -1.54572778016;
+
+    const double GDOP0 = 5;
+    const double mask_angle = 5;
+    const int fadeout_time = 20;
+    const double SNR_threshold = 30;
+    const double hatch_constant = 1.0 / 30.0;
 };

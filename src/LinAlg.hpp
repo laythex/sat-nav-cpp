@@ -16,6 +16,8 @@ public:
     double operator()(size_t i, size_t j) const;
     double& at(size_t i, size_t j);
 
+    std::vector<double>& at(size_t i);
+
     Matrix operator+(const Matrix& other) const;
     Matrix operator-(const Matrix& other) const;
     Matrix operator*(double x) const;
@@ -39,6 +41,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a);
 std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator*(const std::vector<double>& a, double x);
+double operator*(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator/(const std::vector<double>& a, double x);
 
 double dot(const std::vector<double>& a, const std::vector<double>& b);

@@ -1,15 +1,15 @@
 #include "PlotterRel.hpp"
 
-PlotterRel::PlotterRel(const SatNavRel& sn, unsigned ti, unsigned tf) : problem(sn), ti(ti), tf(tf) {
+PlotterRel::PlotterRel(const SatNavRel& sn, double ti, double tf) : problem(sn), ti(ti), tf(tf) {
     problem.solve_relative('0', ti, tf);
 }
 
 void PlotterRel::plot_errors_norm(double ymin, double ymax) {
-    std::string filename = "rel-norm";
+    std::string filename = "rel-errors-norm";
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Модуль расстояния" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
@@ -17,12 +17,13 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
 
         unsigned time = ss.time;
 
-        double ss_norm = abs(ss.position);
+        auto ts_it = problem.get_true_state_iterator(time);
+        if (ts_it == problem.get_true_states().end()) continue;
+        State ts = *ts_it;
 
-        // переписать через тру стейт проблемы
-        double ts_norm = abs(problem.pas.get_true_state_at(time).position - problem.act.get_true_state_at(time).position);
-
-        file << time << sep << ss_norm << sep << ts_norm << std::endl;
+        double error_norm = abs(ss.position - ts.position);
+        
+        file << time << sep << error_norm << std::endl;
     }
 
     file.close();

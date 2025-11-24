@@ -69,11 +69,12 @@ struct RefinedMeasurement {
     double pseudorange;
     double carrier_phase;
     std::vector<double> gps_position;
+    std::vector<double> gps_velocity;
 
     RefinedMeasurement();
     RefinedMeasurement(bool is_present,
                        int time, unsigned prn_id, double pseudorange, double carrier_phase,
-                       const std::vector<double>& gps_position);
+                       const std::vector<double>& gps_position, const std::vector<double>& gps_velocity);
 };
 
 struct RawMeasurementGroupped {

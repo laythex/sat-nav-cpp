@@ -22,6 +22,8 @@ y_min = y_min if y_lim else None
 y_max = y_max if y_lim else None
 plt.ylim(y_min, y_max)
 
+plt.ticklabel_format(axis='x', useOffset=data.iloc[0, 0])
+
 plt.grid()
 plt.xlabel(x_label)
 plt.ylabel(y_label)
