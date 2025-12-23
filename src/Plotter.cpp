@@ -68,6 +68,29 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
     run_py_plotter(filename);
 }
 
+void Plotter::plot_gdop(double ymin, double ymax) {
+std::string filename = "gdop";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "GDOP" << '\t' << "Время, с" << '\t' << "GDOP" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    
+    for (const auto& ss : problem.get_solution_states()) {
+        if (!ss.is_solved) continue;
+
+        unsigned time = ss.time;
+
+        double gdop = ss.GDOP;
+
+        file << time << sep << gdop << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
 void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
     problem_copy.solve('I', ti, tf);
 

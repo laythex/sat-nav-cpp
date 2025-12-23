@@ -40,6 +40,10 @@ void SatNav::solve(char et, double ti, double tf) {
             raw_mg_cnt++;
         }
 
+        if (raw_mg.time < 732801600 + 3600 || raw_mg.time > 732801600 + 3600 + 5400) {
+            continue;
+        }
+
         std::vector<RefinedMeasurement> ref_ms(32);
 
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
@@ -61,18 +65,18 @@ void SatNav::solve(char et, double ti, double tf) {
 
         SolutionState solution = calculate_solution(ref_mg);
 
-        if (error_type != 'L') {
-            if (solution.is_solved) {
-                std::vector<unsigned> low = check_low(solution, ref_mg);
-                if (low.size() > 0) {
-                    for (unsigned prn_id : low) {
-                        unsigned prn_index = prn_id - 1;
-                        ref_mg.refined_measurements[prn_index].is_present = false;
-                    }
-                    solution = calculate_solution(ref_mg);
-                }
-            }
-        }
+        // if (error_type != 'L') {
+        //     if (solution.is_solved) {
+        //         std::vector<unsigned> low = check_low(solution, ref_mg);
+        //         if (low.size() > 0) {
+        //             for (unsigned prn_id : low) {
+        //                 unsigned prn_index = prn_id - 1;
+        //                 ref_mg.refined_measurements[prn_index].is_present = false;
+        //             }
+        //             solution = calculate_solution(ref_mg);
+        //         }
+        //     }
+        // }
 
         solution_states.push_back(solution);
     }
@@ -91,17 +95,17 @@ bool SatNav::check_raw(const RawMeasurement& raw_m) {
         return false;
     }
 
-    if (error_type != 'S') {
-        if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
-            return false;
-        }
-    }
+    // if (error_type != 'S') {
+    //     if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
+    //         return false;
+    //     }
+    // }
 
-    if (error_type != 'F') {
-        if (check_fading(raw_m)) {
-            return false;
-        }
-    }
+    // if (error_type != 'F') {
+    //     if (check_fading(raw_m)) {
+    //         return false;
+    //     }
+    // }
 
     return true;
 }

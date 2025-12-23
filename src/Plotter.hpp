@@ -14,6 +14,7 @@ public:
     Plotter(const SatNav& sn, double ti = 0, double tf = 0);
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_pr(double ymin = 0, double ymax = 0);
+    void plot_gdop(double ymin = 0, double ymax = 0);
     void plot_errors_by_type(char error_type, double ymin = 0, double ymax = 0);
 
     void plot_map_norm(const std::string& mode, double threshold = 0);

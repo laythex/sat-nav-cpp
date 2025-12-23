@@ -57,7 +57,7 @@ private:
     const double C1 = 2.54572778016;
     const double C2 = -1.54572778016;
 
-    const double GDOP0 = 5;
+    const double GDOP0 = 500000;
     const double mask_angle = 5;
     const int fadeout_time = 20;
     const double SNR_threshold = 30;
