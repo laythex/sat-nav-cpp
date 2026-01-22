@@ -17,6 +17,7 @@ public:
     double& at(size_t i, size_t j);
 
     std::vector<double>& at(size_t i);
+    void insert(const Matrix& m, size_t i, size_t j);
 
     Matrix operator+(const Matrix& other) const;
     Matrix operator-(const Matrix& other) const;
@@ -42,6 +43,7 @@ std::vector<double> operator+(const std::vector<double>& a, const std::vector<do
 std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator*(const std::vector<double>& a, double x);
 double operator*(const std::vector<double>& a, const std::vector<double>& b);
+Matrix col_by_row(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator/(const std::vector<double>& a, double x);
 
 double dot(const std::vector<double>& a, const std::vector<double>& b);

@@ -25,31 +25,26 @@ SatNav::SatNav(const SatNav& sn) : handler(sn.handler),
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped) {}
 
-void SatNav::solve(char et, double ti, double tf) {
+void SatNav::solve(char et, int ti, int tf) {
     logger.log("Beginning to solve..."); // доделать логгер
 
     error_type = et;
 
-    size_t raw_mg_cnt = 0;
-    size_t raw_mg_size = raw_measurements_groupped.size();
     for (const auto& raw_mg : raw_measurements_groupped) {
         
         if (ti > 0 || tf > 0) {
-            double t = static_cast<double>(raw_mg_cnt) / static_cast<double>(raw_mg_size);
-            if (t < ti || t >= tf) continue;
-            raw_mg_cnt++;
+            if (raw_mg.time < ti || raw_mg.time >= tf) continue;
         }
 
-        if (raw_mg.time < 732801600 + 3600 || raw_mg.time > 732801600 + 3600 + 5400) {
-            continue;
-        }
+        logger.log("Current time = " + std::to_string(raw_mg.time));
 
         std::vector<RefinedMeasurement> ref_ms(32);
-
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
             unsigned prn_index = prn_id - 1;
 
             if (!check_raw(raw_mg.raw_measurements[prn_index])) continue;
+
+            logger.log("Refining " + std::to_string(prn_id));
 
             RefinedMeasurement ref_m = refine_raw(raw_mg.raw_measurements[prn_index]);
 
@@ -65,18 +60,32 @@ void SatNav::solve(char et, double ti, double tf) {
 
         SolutionState solution = calculate_solution(ref_mg);
 
-        // if (error_type != 'L') {
-        //     if (solution.is_solved) {
-        //         std::vector<unsigned> low = check_low(solution, ref_mg);
-        //         if (low.size() > 0) {
-        //             for (unsigned prn_id : low) {
-        //                 unsigned prn_index = prn_id - 1;
-        //                 ref_mg.refined_measurements[prn_index].is_present = false;
-        //             }
-        //             solution = calculate_solution(ref_mg);
-        //         }
-        //     }
-        // }
+        if (error_type != 'L') {
+            if (solution.is_solved) {
+                std::vector<unsigned> low = check_low(solution, ref_mg);
+                if (low.size() > 0) {
+                    for (unsigned prn_id : low) {
+                        unsigned prn_index = prn_id - 1;
+                        ref_mg.refined_measurements[prn_index].is_present = false;
+                    }
+                    solution = calculate_solution(ref_mg);
+                }
+            }
+        }
+
+        logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
+
+        if (solution.is_solved) {
+            logger.log("GDOP: " + std::to_string(solution.GDOP));
+            logger.log("Solution norm: " + std::to_string(abs(solution.position)));
+
+            auto ts = get_true_state_iterator(raw_mg.time);
+            double error = abs(solution.position - ts->position);
+            logger.log("Error: " + std::to_string(error));
+            if (error > 10) logger.log("HIGH ERROR");
+        }
+
+        logger.log("");
 
         solution_states.push_back(solution);
     }
@@ -95,17 +104,19 @@ bool SatNav::check_raw(const RawMeasurement& raw_m) {
         return false;
     }
 
-    // if (error_type != 'S') {
-    //     if (raw_m.L1_SNR < SNR_threshold || raw_m.L2_SNR < SNR_threshold) {
-    //         return false;
-    //     }
-    // }
+    if (error_type != 'S') {
+        double L1_CN0 = 20 * log10(raw_m.L1_SNR) - CN0_constant;
+        double L2_CN0 = 20 * log10(raw_m.L2_SNR) - CN0_constant;
+        if (L1_CN0 < CN0_min || L1_CN0 > CN0_max || L2_CN0 < CN0_min || L2_CN0 > CN0_max) {
+            return false;
+        }
+    }
 
-    // if (error_type != 'F') {
-    //     if (check_fading(raw_m)) {
-    //         return false;
-    //     }
-    // }
+    if (error_type != 'F') {
+        if (check_fading(raw_m)) {
+            return false;
+        }
+    }
 
     return true;
 }

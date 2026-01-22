@@ -19,7 +19,7 @@ public:
     SatNav(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
-    void solve(char et = '0', double ti = 0, double tf = 0);
+    void solve(char et = '0', int ti = 0, int tf = 0);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;
@@ -56,10 +56,13 @@ private:
     const double earth_rotation_rate = 7.2921151467e-5;
     const double C1 = 2.54572778016;
     const double C2 = -1.54572778016;
+    const double CN0_constant = 3.01029995664;
 
-    const double GDOP0 = 500000;
-    const double mask_angle = 5;
-    const int fadeout_time = 20;
-    const double SNR_threshold = 30;
+    const double GDOP0 = 5;
+    const double mask_angle = 10;
+    const int fadeout_time = 10;
+    const double CN0_min = 25;
+    const double CN0_max = 70;
     const double hatch_constant = 1.0 / 30.0;
+
 };

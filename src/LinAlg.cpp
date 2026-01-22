@@ -29,6 +29,14 @@ std::vector<double>& Matrix::at(size_t i) {
     return data[i];
 }
 
+void Matrix::insert(const Matrix& m, size_t i, size_t j) {
+    for (size_t p = 0; p < m.rows; p++) {
+        for (size_t q = 0; q < m.cols; q++) {
+            at(i + p, j + q) = m(p, q);
+        }
+    }
+}
+
 Matrix Matrix::operator+(const Matrix& other) const {
     Matrix res = Matrix(rows, cols);
 
@@ -229,6 +237,18 @@ std::vector<double> operator*(const std::vector<double>& a, double x) {
 
 double operator*(const std::vector<double>& a, const std::vector<double>& b) {
     return dot(a, b);
+}
+
+Matrix col_by_row(const std::vector<double>& a, const std::vector<double>& b) {
+    Matrix res(a.size(), b.size());
+
+    for (size_t i = 0; i < a.size(); i++) {
+        for (size_t j = 0; j < b.size(); i++) {
+            res.at(i, j) = a[i] * b[j];
+        }
+    }
+
+    return res;
 }
 
 std::vector<double> operator/(const std::vector<double>& a, double x) {
