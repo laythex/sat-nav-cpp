@@ -19,13 +19,13 @@ int main() {
     // Plotter plotter(problem, 0, 0);
     // plotter.plot_errors_norm(0, 20);
 
-    // GPSHandler handler = GPSHandler("brdc3440.05n"); 
-    // SatNav problem1 = SatNav("GNV1B_2005-12-10_A_02.dat", "GPS1B_2005-12-10_A_02.dat", handler);
-    // SatNav problem2 = SatNav("GNV1B_2005-12-10_B_02.dat", "GPS1B_2005-12-10_B_02.dat", handler);
+    GPSHandler handler = GPSHandler("brdc3440.05n"); 
+    SatNav problem1 = SatNav("GNV1B_2005-12-10_A_02.dat", "GPS1B_2005-12-10_A_02.dat", handler);
+    SatNav problem2 = SatNav("GNV1B_2005-12-10_B_02.dat", "GPS1B_2005-12-10_B_02.dat", handler);
 
-    // SatNavRel problem_rel(problem1, problem2);
-    // PlotterRel plotter(problem_rel, 0, 0);
-    // plotter.plot_errors_norm(0, 5);
+    SatNavRel problem_rel(problem1, problem2);
+    PlotterRel plotter(problem_rel, 0, 0);
+    plotter.plot_errors_norm(0, 20);
 
     return 0;
 }

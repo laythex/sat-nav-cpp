@@ -36,7 +36,7 @@ void PlotterRel::run_py_plotter(const std::string& arg) const {
     system(command.c_str());
 }
 
-std::vector<double> PlotterRel::ECEF_to_geographycal(const std::vector<double>& position) {
+std::vector<double> PlotterRel::ECEF_to_geographical(const std::vector<double>& position) {
     double latitude, longitude;
 
     double x = position[0];

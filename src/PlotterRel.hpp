@@ -18,7 +18,7 @@ public:
 private:
     void run_py_plotter(const std::string& arg) const;
 
-    std::vector<double> ECEF_to_geographycal(const std::vector<double>& position);
+    std::vector<double> ECEF_to_geographical(const std::vector<double>& position);
 
     SatNavRel problem;
 

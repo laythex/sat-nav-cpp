@@ -25,7 +25,6 @@ public:
     const std::vector<SolutionState>& get_solution_states() const;
 
     std::vector<State>::const_iterator get_true_state_iterator(int time) const;
-    std::vector<SolutionState>::const_iterator get_coarse_solution_state_iterator(int time) const;
 
     // должно быть приватным?
     SatNav& pas;
@@ -38,14 +37,8 @@ private:
     // Находим вектор состояния
     SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg);
 
-    // Находим приблизительный вектор состояния
-    State estimate_state(const SolutionState& ss_pas, const SolutionState& ss_last, int time);
-
-    // Находим приблизительный вектор измерений
-
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
-    std::vector<SolutionState> coarse_solution_states;
     std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
 
     Logger logger;
@@ -58,8 +51,13 @@ private:
     const double GDOP0 = 5;
 
     // Постоянные динамического фильтра
-    double T_x = 1;
-    double T_v = 1;
+    double T_x = 10;
+    double T_v = 10;
     Matrix lambda = Matrix(6, 6, 0.0);
     Matrix W = Matrix(6, 6, 0.0);
+
+    int time_prev = 0;
+    std::vector<double> coarse_prev;
+    std::vector<double> xi_m_2_prev;
+    std::vector<double> xi_m_2_est_prev;
 };

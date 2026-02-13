@@ -243,7 +243,7 @@ Matrix col_by_row(const std::vector<double>& a, const std::vector<double>& b) {
     Matrix res(a.size(), b.size());
 
     for (size_t i = 0; i < a.size(); i++) {
-        for (size_t j = 0; j < b.size(); i++) {
+        for (size_t j = 0; j < b.size(); j++) {
             res.at(i, j) = a[i] * b[j];
         }
     }
