@@ -71,22 +71,32 @@ void SatNavRel::solve_relative(char et, int ti, int tf) {
 
         logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
 
-        if (solution.is_solved) {
-            logger.log("GDOP: " + std::to_string(solution.GDOP));
-            logger.log("Solution norm: " + std::to_string(abs(solution.position)));
+        if (solution.is_solved || solution.failure_type == 'S') {
+            // logger.log("Solution norm: " + std::to_string(abs(solution.position)));
+            // logger.log("Solution x: " + std::to_string(solution.position[0]));
+            // logger.log("Solution y: " + std::to_string(solution.position[1]));
+            // logger.log("Solution z: " + std::to_string(solution.position[2]));
 
             auto ts = get_true_state_iterator(raw_mg_pas.time);
-            double error = abs(solution.position - ts->position);
-            logger.log("Error: " + std::to_string(error));
-            if (error > 5) logger.log("HIGH ERROR");
-            auto ss_pas = pas.get_solution_state_iterator(raw_mg_pas.time);
-            auto ts_pas = pas.get_true_state_iterator(raw_mg_pas.time);
-            double error_pas = abs(ss_pas->position - ts_pas->position);
-            auto ss_act = act.get_solution_state_iterator(raw_mg_pas.time);
-            auto ts_act = act.get_true_state_iterator(raw_mg_pas.time);
-            double error_act = abs(ss_act->position - ts_act->position);
-            logger.log("Passive error: " + std::to_string(error_pas));
-            logger.log("Active error: " + std::to_string(error_act));
+            // logger.log("True norm: " + std::to_string(abs(ts->position)));
+            // logger.log("True x: " + std::to_string(ts->position[0]));
+            // logger.log("True y: " + std::to_string(ts->position[1]));
+            // logger.log("True z: " + std::to_string(ts->position[2]));
+
+            auto error = solution.position - ts->position;
+            logger.log("Error norm: " + std::to_string(abs(error)));
+            // logger.log("Error x: " + std::to_string(error[0]));
+            // logger.log("Error y: " + std::to_string(error[1]));
+            // logger.log("Error z: " + std::to_string(error[2]));
+            if (abs(error) > 15) logger.log("HIGH ERROR");
+            // auto ss_pas = pas.get_solution_state_iterator(raw_mg_pas.time);
+            // auto ts_pas = pas.get_true_state_iterator(raw_mg_pas.time);
+            // double error_pas = abs(ss_pas->position - ts_pas->position);
+            // auto ss_act = act.get_solution_state_iterator(raw_mg_pas.time);
+            // auto ts_act = act.get_true_state_iterator(raw_mg_pas.time);
+            // double error_act = abs(ss_act->position - ts_act->position);
+            // logger.log("Passive error: " + std::to_string(error_pas));
+            // logger.log("Active error: " + std::to_string(error_act));
         }
 
         logger.log("");
@@ -102,15 +112,15 @@ void SatNavRel::solve_relative(char et, int ti, int tf) {
 }
 
 RefinedMeasurement SatNavRel::refine_raw(const RawMeasurement& raw_m_pas, const RawMeasurement& raw_m_act) {
-    double pseudorange_delta = raw_m_act.L1_range - raw_m_pas.L1_range;
-    double carrier_phase_delta = raw_m_act.L1_phase - raw_m_pas.L1_phase;
+    double pseudorange_delta = raw_m_pas.L1_range - raw_m_act.L1_range;
+    double carrier_phase_delta = raw_m_pas.L1_phase - raw_m_act.L1_phase;
 
     double clock_error = pas.handler.get_clock_error(raw_m_pas.prn_id, raw_m_pas.time);
     double delay = raw_m_pas.L1_range / c + clock_error;
 
     GPSState gs = pas.handler.get_state(raw_m_pas.prn_id, raw_m_pas.time - delay);
     
-    return {true, raw_m_pas.time, raw_m_pas.prn_id, pseudorange_delta, carrier_phase_delta, gs.position, gs.velocity};
+    return {true, raw_m_pas.time, raw_m_pas.prn_id, pseudorange_delta, carrier_phase_delta, gs.position, gs.velocity}; // Минус необходим???
 }
 
 SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& ref_mg) {
@@ -118,12 +128,23 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     SolutionState solution;
     solution.time = ref_mg.time;
 
+    // То, что надо пронести на следующую итерацию
+    DynamicFilterState dfs;
+    dfs.time = ref_mg.time;
+    if (dfs_prev.time == 0) dfs.is_first = true; // Самая первая итерация
+    if (dfs_prev.is_failed) dfs.is_first = true; // Последняя итерация не удалась - начинаем заново
+    if (dfs_prev.is_first) dfs.is_second = true; // полукостыль
+
     // Находим решение пассивного КА
     auto ss_pas_it = pas.get_solution_state_iterator(ref_mg.time);
     if (ss_pas_it == pas.get_solution_states().end() || !(ss_pas_it->is_solved)) { // Лишние скобки?
         solution.is_solved = false;
-        solution.failure_type = 'P';
-        return solution;    // Решение не нашлось
+        solution.failure_type = 'P'; // Решение пассивного не нашлось
+
+        dfs.is_failed = true;
+        dfs_prev = dfs;
+
+        return solution;
     }
     SolutionState ss_pas = *ss_pas_it;
 
@@ -131,111 +152,173 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     auto ss_act_it = act.get_solution_state_iterator(ref_mg.time);
     if (ss_act_it == act.get_solution_states().end() || !(ss_act_it->is_solved)) {
         solution.is_solved = false;
-        solution.failure_type = 'A';
-        return solution;    // Решение не нашлось
-    }
-    SolutionState ss_act = *ss_act_it;
+        solution.failure_type = 'A'; // Решение активного не нашлось
 
-    // Грубое решение
-    std::vector<double> coarse = ss_act.position - ss_pas.position;
-
-    // Проходим по всем присутствующим НКА
-    size_t n = 0;
-    std::vector<double> pr_act_minus_pr_pas_minus_delta;
-    std::vector<double> cp_act_minus_cp_pas;
-    std::vector<std::vector<double>> gps_pos_minus_pas_pos_norm;
-    std::vector<double> pr_act_minus_pr_pas_minus_delta_est;
-    std::vector<double> cp_act_minus_cp_pas_est;
-    for (const auto& ref_m : ref_mg.refined_measurements) {
-        if (!ref_m.is_present) continue;
-
-        std::vector<double> X_gps_minus_X_act = ref_m.gps_position - ss_act.position;
-        std::vector<double> X_gps_minus_X_pas = ref_m.gps_position - ss_pas.position;
-
-        double delta = ref_m.gps_velocity * coarse / (c * c) + 
-                       (X_gps_minus_X_pas * coarse) * (X_gps_minus_X_pas * coarse) / 
-                       (abs(X_gps_minus_X_pas) * abs(X_gps_minus_X_pas) * abs(X_gps_minus_X_pas)) / 2 -
-                       coarse * coarse / abs(X_gps_minus_X_pas) / 2;
-
-        n++;
-        
-        // Из точных решений
-        pr_act_minus_pr_pas_minus_delta.push_back(ref_m.pseudorange - delta);
-        cp_act_minus_cp_pas.push_back(ref_m.carrier_phase);
-        gps_pos_minus_pas_pos_norm.push_back(X_gps_minus_X_pas / abs(X_gps_minus_X_pas));
-
-        // Из приближений КСВ
-        pr_act_minus_pr_pas_minus_delta_est.push_back(abs(X_gps_minus_X_act) - abs(X_gps_minus_X_pas) - delta);
-        cp_act_minus_cp_pas_est.push_back(abs(X_gps_minus_X_act) - abs(X_gps_minus_X_pas));
-    }
-
-    // Строим векторы измерений - истинный и приблизительный
-    std::vector<double> xi_m_1(n);
-    std::vector<double> xi_m_2(n);
-    std::vector<double> xi_m_1_est(n); // почему n?
-    std::vector<double> xi_m_2_est(n);
-    for (size_t i = 0; i < n; i++) {
-        size_t j = i < n - 1 ? i + 1 : 0;
-
-        xi_m_1[i] = pr_act_minus_pr_pas_minus_delta[i] - pr_act_minus_pr_pas_minus_delta[j];
-        xi_m_2[i] = cp_act_minus_cp_pas[i] - cp_act_minus_cp_pas[j];
-
-        xi_m_1_est[i] = pr_act_minus_pr_pas_minus_delta_est[i] - pr_act_minus_pr_pas_minus_delta_est[j];
-        xi_m_2_est[i] = cp_act_minus_cp_pas_est[i] - cp_act_minus_cp_pas_est[j];
-    }
-
-    // Обрабатываем первое решение
-    if (time_prev == 0) {
-        solution.position = coarse;
-        solution.is_solved = true;
-
-        time_prev = ref_mg.time;
-        coarse_prev = coarse;
-        xi_m_2_prev = xi_m_2;
-        xi_m_2_est_prev = xi_m_2_est;
+        dfs.is_failed = true;
+        dfs_prev = dfs;
 
         return solution;
     }
+    SolutionState ss_act = *ss_act_it;
 
-    // Достраиваем вектор измерений
-    std::vector<double> xi_m(n * 2);
-    std::vector<double> xi_m_est(n * 2);
-    for (size_t i = 0; i < n; i++) {
-        xi_m[i] = xi_m_1[i];
-        xi_m[i + n] = xi_m_2[i] - xi_m_2_prev[i];
+    // Грубое решение для дельт
+    std::vector<double> coarse = ss_act.position - ss_pas.position;
 
-        xi_m_est[i] = xi_m_1_est[i];
-        xi_m_est[i + n] = xi_m_2_est[i] - xi_m_2_est_prev[i];
+    // То, что не надо проносить на следующую итерацию
+    std::vector<double> xi_m_1_full(32);
+    std::vector<std::vector<double>> C_rows_full(32);
+
+    // Проходим по всем присутствующим НКА
+    for (const auto& ref_m : ref_mg.refined_measurements) {
+        if (!ref_m.is_present) continue;
+
+        std::vector<double> X_gps_minus_X_pas = ref_m.gps_position - ss_pas.position;
+        double X_gps_minus_X_pas_norm = abs(X_gps_minus_X_pas);
+
+        double delta = ref_m.gps_velocity * coarse / (c * c) + 
+                       (X_gps_minus_X_pas * coarse) * (X_gps_minus_X_pas * coarse) / 
+                       (X_gps_minus_X_pas_norm * X_gps_minus_X_pas_norm * X_gps_minus_X_pas_norm) / 2 -
+                       coarse * coarse / X_gps_minus_X_pas_norm / 2;
+        
+        size_t prn_index = ref_m.prn_id - 1;
+        dfs.mask[prn_index] = true;
+        dfs.xi_m_2[prn_index] = ref_m.carrier_phase;
+        xi_m_1_full[prn_index] = ref_m.pseudorange - delta;
+        C_rows_full[prn_index] = X_gps_minus_X_pas / X_gps_minus_X_pas_norm;
     }
 
-    // Строим приблизительный вектор состояния 
-    std::vector<double> xi_est(6);
-    for (size_t i = 0; i < 3; i++) {
-        xi_est[i] = coarse[i];
-        xi_est[i + 3] = coarse[i] - coarse_prev[i];
+    /*
+        Предпредыдущий шаг:
+        xi_m_2
+
+        Предыдущий шаг:
+        xi_m_1, d_xi_m_2, C => x, dx - из системы
+
+        Текущий шаг:
+        x_m_1, d_xi_m_2, С
+        из прогноза x, dx
+        решаем ДФ
+    */
+
+    // Обрабатываем предпредыдущий шаг
+    if (dfs.is_first) {
+        dfs_prev = dfs;
+
+        // К этому моменту в дфс лежат маска и xi_m_2
+        solution.is_solved = false;
+        solution.position = dfs.x; // для отладки (для отображения в логах)
+        solution.failure_type = 'F';
+        return solution;
+    }
+
+    // Строим компоненты вектора измерений и строки матрицы C
+    size_t n = 0;
+    std::vector<double> xi_m_1;
+    std::vector<double> d_xi_m_2;
+    std::vector<std::vector<double>> C_rows;
+    for (size_t prn_index = 0; prn_index < 32; prn_index++) {
+        if (dfs.mask[prn_index] && dfs_prev.mask[prn_index]) {
+            n++;
+            xi_m_1.push_back(xi_m_1_full[prn_index]);
+            d_xi_m_2.push_back(dfs.xi_m_2[prn_index] - dfs_prev.xi_m_2[prn_index]);
+            C_rows.push_back(C_rows_full[prn_index]);
+        }
+    }
+
+    // Собираем вектор измерений и матрицу C
+    std::vector<double> xi_m(n * 2);
+    Matrix C(n, 3);
+    for (size_t i = 0; i < n; i++) {
+        size_t j = i < n - 1 ? i + 1 : 0;
+        xi_m[i] = xi_m_1[i] - xi_m_1[j];
+        xi_m[i + n] = d_xi_m_2[i] - d_xi_m_2[j];
+        C.at(i) = C_rows[i] - C_rows[j];
+    }
+
+    // Матрица C может оказаться плохой 
+    try {
+        Matrix C1 = (C.transpose() * C).inverse();
+        double c = sqrt(C1.trace());
+        if (c > 5) {
+            dfs.is_failed = true;
+            dfs_prev = dfs;
+
+            solution.is_solved = false;
+            solution.failure_type = 'c';
+            return solution;  
+        }
+    } catch (std::runtime_error e) {
+        dfs.is_failed = true;
+        dfs_prev = dfs;
+
+        solution.is_solved = false;
+        solution.failure_type = 'C';
+        return solution; 
     }
 
     // Строим матрицу C0
     Matrix C0(n * 2, 6, 0.0);
-    Matrix C(n, 3);
-    for (size_t i = 0; i < n; i++) {
-        size_t j = i < n - 1 ? i + 1 : 0;
-        C.at(i) = gps_pos_minus_pas_pos_norm[i] - gps_pos_minus_pas_pos_norm[j];
-    }
     C0.insert(C, 0, 0);
-    C0.insert(C, 3, 3);
+    C0.insert(C, n, 3);
 
-    double dt = ref_mg.time - time_prev;
+    // Обрабатываем предыдущий шаг
+    if (dfs.is_second) {
+        std::vector<double> xi = (C.transpose() * C).inverse() * C.transpose() * xi_m; // На этом шаге пока без прогнозов и ДФ
+        for (size_t i = 0; i < 3; i++) {
+            dfs.x[i] = xi[i];
+            dfs.dx[i] = xi[i + 3];
+        }
+        dfs_prev = dfs;
+        W = Matrix(6, 6, 0.0); // Обнуляем матрицу W
 
+        // К этому моменту в дфс лежит маска, xi_m_2, x и dx => готовы начать со следующего шага
+        solution.is_solved = false;
+        solution.position = dfs.x; // для отладки (для отображения в логах)
+        solution.failure_type = 'S';
+        return solution;
+    }
+
+    // Нужные вещи
+    double dt = dfs.time - dfs_prev.time;
     Matrix E = identity(3);
-    double omega = earth_rotation_rate;
-    Matrix Omega = {{{0, omega, 0}, {omega, 0, 0}, {0, 0, 0}}};
-
-    double X_norm2 = abs(ss_pas.position) * abs(ss_pas.position);
+    Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}}; // Сделать нормальную матрицу поворота?
+    double X_norm = abs(ss_pas.position);
+    double omega2 = earth_mu / (X_norm * X_norm * X_norm);
     Matrix X_prod_X_T = col_by_row(ss_pas.position, ss_pas.position);
-    Matrix derivative = (Omega * Omega + (E - X_prod_X_T / X_norm2 * 3) * omega * omega) * dt * dt * (-1);
+    Matrix derivative = (Omega * Omega + (E - X_prod_X_T / (X_norm * X_norm)  * 3) * omega2) * dt * dt * (-1);
 
-    // Строим матрицу B
+    logger.log("dt: " + std::to_string(dt));
+    if (dt > 10) std::cout << dfs.time << std::endl;
+
+    // Строим оценку вектора состояния путем прогноза
+    std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt; 
+                                //  (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
+    std::vector<double> x_est = dfs_prev.x + dx_est;
+
+    // Чистое интегрирование в приращениях
+    dfs.x = x_est;
+    dfs.dx = dx_est;
+    dfs_prev = dfs;
+    solution.position = x_est;
+    solution.is_solved = true;
+    return solution;
+
+    // Строим оценку вектора состояния
+    std::vector<double> xi_est(6);
+    for (size_t i = 0; i < 3; i++) {
+        xi_est[i] = x_est[i];
+        xi_est[i + 3] = dx_est[i];
+    }
+
+    // Строим оценку вектора измерений из оценки вектора состояния
+    std::vector<double> xi_m_est = C0 * xi_est;
+
+    logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
+    logger.log("prev x:  " + std::to_string(abs(dfs_prev.x)));             
+    logger.log("dx_est:  " + std::to_string(abs(dx_est)));
+    logger.log("d_xi_m:  " + std::to_string(abs(xi_m - xi_m_est))); 
+
+    // Строим матрицу, обратную матрице B
     Matrix B1(6, 6);
     B1.insert(E, 0, 0);
     B1.insert(E * (-1), 0, 3);
@@ -248,16 +331,15 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<double> d_xi = W.inverse() * P;
     std::vector<double> xi = xi_est + d_xi;
 
-    for (size_t i = 0; i < 3; i++) {
-        solution.position[i] = xi[i];
-    }
-    solution.is_solved = true;
-
     // Сохраняем на следующую итерацию
-    time_prev = ref_mg.time;
-    coarse_prev = coarse;
-    xi_m_2_prev = xi_m_2;
-    xi_m_2_est_prev = xi_m_2_est;
+    for (size_t i = 0; i < 3; i++) {
+        dfs.x[i] = xi[i];
+        dfs.dx[i] = xi[i + 3];
+    }
+    dfs_prev = dfs;
+
+    solution.position = dfs.x;
+    solution.is_solved = true;
 
     return solution;
 }

@@ -61,3 +61,10 @@ RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(-1), refined_mea
 RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}
+
+DynamicFilterState::DynamicFilterState() : time(0), x(3), dx(3), mask(32, false), xi_m_2(32), is_first(false), is_second(false), is_failed(false) {}
+DynamicFilterState::DynamicFilterState(int time, 
+                                       const std::vector<double>& x, const std::vector<double>& dx,
+                                       const std::vector<bool>& mask, const std::vector<double>& xi_m_2,
+                                       bool is_first, bool is_second, bool is_failed) : 
+                                       time(time), x(x), dx(dx), mask(mask), xi_m_2(xi_m_2), is_first(is_first), is_second(is_second), is_failed(is_failed) {}

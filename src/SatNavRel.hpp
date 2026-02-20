@@ -47,17 +47,16 @@ private:
 
     const double c = 2.99792458e8;
     const double earth_rotation_rate = 7.2921151467e-5;
+    const double earth_mu = 3.986004418e14;
 
     const double GDOP0 = 5;
 
-    // Постоянные динамического фильтра
-    double T_x = 10;
-    double T_v = 10;
+    // Глобальные перменные динамического фильтра
+    double T_x = 1e3;
+    double T_v = 1e3;
     Matrix lambda = Matrix(6, 6, 0.0);
     Matrix W = Matrix(6, 6, 0.0);
 
-    int time_prev = 0;
-    std::vector<double> coarse_prev;
-    std::vector<double> xi_m_2_prev;
-    std::vector<double> xi_m_2_est_prev;
+    // Предыдущее состояние системы для динамической фильтрации
+    DynamicFilterState dfs_prev;
 };

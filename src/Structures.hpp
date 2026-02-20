@@ -94,3 +94,21 @@ struct RefinedMeasurementGroupped {
     RefinedMeasurementGroupped(int time,
                                const std::vector<RefinedMeasurement>& refined_measurements);
 };
+
+// Используется в алгоритме динамической фильтрации задачи поиска вектора относительного состояния
+struct DynamicFilterState {
+    int time;
+    std::vector<double> x;
+    std::vector<double> dx;
+    std::vector<bool> mask;
+    std::vector<double> xi_m_2;
+    bool is_first;
+    bool is_second;
+    bool is_failed;
+
+    DynamicFilterState();
+    DynamicFilterState(int time, 
+                       const std::vector<double>& x, const std::vector<double>& dx,
+                       const std::vector<bool>& mask, const std::vector<double>& xi_m_2,
+                       bool is_first, bool is_second, bool is_failed);
+};

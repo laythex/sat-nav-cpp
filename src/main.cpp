@@ -25,7 +25,7 @@ int main() {
 
     SatNavRel problem_rel(problem1, problem2);
     PlotterRel plotter(problem_rel, 0, 0);
-    plotter.plot_errors_norm(0, 20);
+    plotter.plot_errors_norm(0, 200);
 
     return 0;
 }

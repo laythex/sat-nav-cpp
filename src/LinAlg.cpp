@@ -195,8 +195,7 @@ std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
 
 std::ostream& operator<<(std::ostream& os, const std::vector<double>& a) {
     for (size_t i = 0; i < a.size(); i++) {
-        double x = abs(a[i]) > 1e-13 ? a[i] : 0;
-        os << x << " ";
+        os << a[i] << " ";
     }
 
     return os;
