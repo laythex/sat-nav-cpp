@@ -88,7 +88,7 @@ void SatNavRel::solve_relative(char et, int ti, int tf) {
             // logger.log("Error x: " + std::to_string(error[0]));
             // logger.log("Error y: " + std::to_string(error[1]));
             // logger.log("Error z: " + std::to_string(error[2]));
-            if (abs(error) > 15) logger.log("HIGH ERROR");
+            if (abs(error) > 5) logger.log("HIGH ERROR");
             // auto ss_pas = pas.get_solution_state_iterator(raw_mg_pas.time);
             // auto ts_pas = pas.get_true_state_iterator(raw_mg_pas.time);
             // double error_pas = abs(ss_pas->position - ts_pas->position);
@@ -188,10 +188,10 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     }
 
     /*
-        Предпредыдущий шаг:
+        Предпредыдущий (-2) шаг:
         xi_m_2
 
-        Предыдущий шаг:
+        Предыдущий (-1) шаг:
         xi_m_1, d_xi_m_2, C => x, dx - из системы
 
         Текущий шаг:
@@ -200,7 +200,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         решаем ДФ
     */
 
-    // Обрабатываем предпредыдущий шаг
+    // Обрабатываем -2 шаг
     if (dfs.is_first) {
         dfs_prev = dfs;
 
@@ -239,6 +239,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     try {
         Matrix C1 = (C.transpose() * C).inverse();
         double c = sqrt(C1.trace());
+        logger.log("c: " + std::to_string(c));
         if (c > 5) {
             dfs.is_failed = true;
             dfs_prev = dfs;
@@ -261,16 +262,17 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     C0.insert(C, 0, 0);
     C0.insert(C, n, 3);
 
-    // Обрабатываем предыдущий шаг
+    // Обрабатываем -1 шаг
     if (dfs.is_second) {
-        std::vector<double> xi = (C.transpose() * C).inverse() * C.transpose() * xi_m; // На этом шаге пока без прогнозов и ДФ
+        std::vector<double> xi = (C0.transpose() * C0).inverse() * C0.transpose() * xi_m; // На этом шаге пока без прогнозов и ДФ
         for (size_t i = 0; i < 3; i++) {
             dfs.x[i] = xi[i];
             dfs.dx[i] = xi[i + 3];
         }
         dfs_prev = dfs;
         W = Matrix(6, 6, 0.0); // Обнуляем матрицу W
-
+        logger.log("dx: " + std::to_string(abs(dfs.dx)));
+        logger.log("x:  " + std::to_string(abs(dfs.x))); 
         // К этому моменту в дфс лежит маска, xi_m_2, x и dx => готовы начать со следующего шага
         solution.is_solved = false;
         solution.position = dfs.x; // для отладки (для отображения в логах)
@@ -291,9 +293,14 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     if (dt > 10) std::cout << dfs.time << std::endl;
 
     // Строим оценку вектора состояния путем прогноза
-    std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt; 
-                                //  (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
+    std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt;
+                                 (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
     std::vector<double> x_est = dfs_prev.x + dx_est;
+
+    logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
+    logger.log("prev x:  " + std::to_string(abs(dfs_prev.x)));             
+    logger.log("dx_est:  " + std::to_string(abs(dx_est)));
+    logger.log("x_est:   " + std::to_string(abs(x_est))); 
 
     // Чистое интегрирование в приращениях
     dfs.x = x_est;
@@ -313,17 +320,17 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // Строим оценку вектора измерений из оценки вектора состояния
     std::vector<double> xi_m_est = C0 * xi_est;
 
-    logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
-    logger.log("prev x:  " + std::to_string(abs(dfs_prev.x)));             
-    logger.log("dx_est:  " + std::to_string(abs(dx_est)));
-    logger.log("d_xi_m:  " + std::to_string(abs(xi_m - xi_m_est))); 
-
     // Строим матрицу, обратную матрице B
     Matrix B1(6, 6);
-    B1.insert(E, 0, 0);
-    B1.insert(E * (-1), 0, 3);
-    B1.insert(derivative * (-1), 3, 0);
-    B1.insert(E + derivative - Omega * dt * 2, 3, 3);
+    // B1.insert(E, 0, 0);
+    // B1.insert(E * (-1), 0, 3);
+    // B1.insert(derivative * (-1), 3, 0);
+    // B1.insert(E + derivative - Omega * dt * 2, 3, 3);
+    B1.insert(E + derivative, 0, 0);
+    B1.insert(E + Omega * dt * 2, 0, 3);
+    B1.insert(derivative, 3, 0);
+    B1.insert(E + Omega * dt * 2, 3, 3);
+    B1 = B1.inverse(); // Ниче не меняется
 
     // Динамическая фильтрация
     std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
