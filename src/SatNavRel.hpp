@@ -10,6 +10,7 @@
 #include "DataParser.hpp"
 #include "Logger.hpp"
 #include "SatNav.hpp"
+#include "Propagator.hpp"
 
 class SatNav;
 

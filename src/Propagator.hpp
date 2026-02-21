@@ -6,7 +6,7 @@
 #include "LinAlg.hpp"
 #include "Structures.hpp"
 
-namespace Propagator {
+namespace Propagator { // переделать в статик класс?
 
 State propagate_rk4(const State& state, double timespan);
 

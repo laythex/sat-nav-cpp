@@ -290,25 +290,38 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     Matrix derivative = (Omega * Omega + (E - X_prod_X_T / (X_norm * X_norm)  * 3) * omega2) * dt * dt * (-1);
 
     logger.log("dt: " + std::to_string(dt));
-    if (dt > 10) std::cout << dfs.time << std::endl;
+    if (dt > 10) std::cout << dfs.time << " -- " << dt << std::endl;
+
+    // Рк4
+    State init = {0, dfs_prev.x, dfs_prev.dx / dt};
+    State fin = Propagator::propagate_rk4(init, dt);
+    std::cout << init.position << std::endl << init.velocity << std::endl;
+    std::cout << 1 / 0;
+    dfs.x = fin.position;
+    dfs.dx = fin.velocity;
+    dfs_prev = dfs;
+    solution.position = dfs.x;
+    solution.is_solved = true;
+    return solution;
 
     // Строим оценку вектора состояния путем прогноза
     std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt;
                                  (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
     std::vector<double> x_est = dfs_prev.x + dx_est;
 
-    logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
-    logger.log("prev x:  " + std::to_string(abs(dfs_prev.x)));             
-    logger.log("dx_est:  " + std::to_string(abs(dx_est)));
-    logger.log("x_est:   " + std::to_string(abs(x_est))); 
-
     // Чистое интегрирование в приращениях
     dfs.x = x_est;
     dfs.dx = dx_est;
     dfs_prev = dfs;
-    solution.position = x_est;
+    solution.position = dfs.x;
     solution.is_solved = true;
     return solution;
+
+    // дебаг
+    logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
+    logger.log("prev x:  " + std::to_string(abs(dfs_prev.x)));             
+    logger.log("dx_est:  " + std::to_string(abs(dx_est)));
+    logger.log("x_est:   " + std::to_string(abs(x_est))); 
 
     // Строим оценку вектора состояния
     std::vector<double> xi_est(6);
