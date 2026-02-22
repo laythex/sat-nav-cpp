@@ -148,6 +148,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     }
     SolutionState ss_pas = *ss_pas_it;
 
+    dfs.pas_pos = ss_pas.position; // Надо хранить
+
     // Находим решение активного КА
     auto ss_act_it = act.get_solution_state_iterator(ref_mg.time);
     if (ss_act_it == act.get_solution_states().end() || !(ss_act_it->is_solved)) {
@@ -284,29 +286,17 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     double dt = dfs.time - dfs_prev.time;
     Matrix E = identity(3);
     Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}}; // Сделать нормальную матрицу поворота?
-    double X_norm = abs(ss_pas.position);
+    double X_norm = abs(dfs_prev.pas_pos);
     double omega2 = earth_mu / (X_norm * X_norm * X_norm);
-    Matrix X_prod_X_T = col_by_row(ss_pas.position, ss_pas.position);
+    Matrix X_prod_X_T = col_by_row(dfs_prev.pas_pos, dfs_prev.pas_pos);
+    logger.log(std::to_string(abs(dfs.pas_pos - dfs_prev.pas_pos)));
     Matrix derivative = (Omega * Omega + (E - X_prod_X_T / (X_norm * X_norm)  * 3) * omega2) * dt * dt * (-1);
 
     logger.log("dt: " + std::to_string(dt));
     if (dt > 10) std::cout << dfs.time << " -- " << dt << std::endl;
 
-    // Рк4
-    State init = {0, dfs_prev.x, dfs_prev.dx / dt};
-    State fin = Propagator::propagate_rk4(init, dt);
-    std::cout << init.position << std::endl << init.velocity << std::endl;
-    std::cout << 1 / 0;
-    dfs.x = fin.position;
-    dfs.dx = fin.velocity;
-    dfs_prev = dfs;
-    solution.position = dfs.x;
-    solution.is_solved = true;
-    return solution;
-
     // Строим оценку вектора состояния путем прогноза
-    std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt;
-                                 (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
+    std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt - (E - X_prod_X_T / (X_norm * X_norm) * 3) * dfs_prev.x * omega2 * dt * dt;
     std::vector<double> x_est = dfs_prev.x + dx_est;
 
     // Чистое интегрирование в приращениях

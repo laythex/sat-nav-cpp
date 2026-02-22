@@ -62,9 +62,9 @@ RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}
 
-DynamicFilterState::DynamicFilterState() : time(0), x(3), dx(3), mask(32, false), xi_m_2(32), is_first(false), is_second(false), is_failed(false) {}
+DynamicFilterState::DynamicFilterState() : time(0), x(3), dx(3), mask(32, false), xi_m_2(32), pas_pos(3), is_first(false), is_second(false), is_failed(false) {}
 DynamicFilterState::DynamicFilterState(int time, 
                                        const std::vector<double>& x, const std::vector<double>& dx,
-                                       const std::vector<bool>& mask, const std::vector<double>& xi_m_2,
+                                       const std::vector<bool>& mask, const std::vector<double>& xi_m_2, const std::vector<double>& pas_pos,
                                        bool is_first, bool is_second, bool is_failed) : 
-                                       time(time), x(x), dx(dx), mask(mask), xi_m_2(xi_m_2), is_first(is_first), is_second(is_second), is_failed(is_failed) {}
+                                       time(time), x(x), dx(dx), mask(mask), xi_m_2(xi_m_2), pas_pos(pas_pos), is_first(is_first), is_second(is_second), is_failed(is_failed) {}
