@@ -53,8 +53,9 @@ private:
     const double GDOP0 = 5;
 
     // Глобальные перменные динамического фильтра
-    double T_x = 1;
-    double T_v = 1;
+    double T_x = 0;
+    double T_v = 0;
+    double T_p = 1;
     Matrix lambda = Matrix(6, 6, 0.0);
     Matrix W = Matrix(6, 6, 0.0);
 

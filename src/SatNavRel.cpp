@@ -88,7 +88,7 @@ void SatNavRel::solve_relative(char et, int ti, int tf) {
             // logger.log("Error x: " + std::to_string(error[0]));
             // logger.log("Error y: " + std::to_string(error[1]));
             // logger.log("Error z: " + std::to_string(error[2]));
-            if (abs(error) > 5) logger.log("HIGH ERROR");
+            if (abs(error) > 10) logger.log("HIGH ERROR");
             // auto ss_pas = pas.get_solution_state_iterator(raw_mg_pas.time);
             // auto ts_pas = pas.get_true_state_iterator(raw_mg_pas.time);
             // double error_pas = abs(ss_pas->position - ts_pas->position);
@@ -168,7 +168,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     // То, что не надо проносить на следующую итерацию
     std::vector<double> xi_m_1_full(32);
-    std::vector<std::vector<double>> C_rows_full(32);
 
     // Проходим по всем присутствующим НКА
     for (const auto& ref_m : ref_mg.refined_measurements) {
@@ -186,7 +185,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dfs.mask[prn_index] = true;
         dfs.xi_m_2[prn_index] = ref_m.carrier_phase;
         xi_m_1_full[prn_index] = ref_m.pseudorange - delta;
-        C_rows_full[prn_index] = X_gps_minus_X_pas / X_gps_minus_X_pas_norm;
+        dfs.C_rows[prn_index] = X_gps_minus_X_pas / X_gps_minus_X_pas_norm;
     }
 
     /*
@@ -217,24 +216,28 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     size_t n = 0;
     std::vector<double> xi_m_1;
     std::vector<double> d_xi_m_2;
-    std::vector<std::vector<double>> C_rows;
+    std::vector<std::vector<double>> C_rows; // Названия совпадают
+    std::vector<std::vector<double>> C_rows_prev;
     for (size_t prn_index = 0; prn_index < 32; prn_index++) {
         if (dfs.mask[prn_index] && dfs_prev.mask[prn_index]) {
             n++;
             xi_m_1.push_back(xi_m_1_full[prn_index]);
             d_xi_m_2.push_back(dfs.xi_m_2[prn_index] - dfs_prev.xi_m_2[prn_index]);
-            C_rows.push_back(C_rows_full[prn_index]);
+            C_rows.push_back(dfs.C_rows[prn_index]);
+            C_rows_prev.push_back(dfs_prev.C_rows[prn_index]);
         }
     }
 
-    // Собираем вектор измерений и матрицу C
+    // Собираем вектор измерений и матрицы C, C_prev
     std::vector<double> xi_m(n * 2);
     Matrix C(n, 3);
+    Matrix C_prev(n, 3); // Предыдующую матрицу C надо строить заново, потому что спутники могут отличаться
     for (size_t i = 0; i < n; i++) {
         size_t j = i < n - 1 ? i + 1 : 0;
         xi_m[i] = xi_m_1[i] - xi_m_1[j];
         xi_m[i + n] = d_xi_m_2[i] - d_xi_m_2[j];
         C.at(i) = C_rows[i] - C_rows[j];
+        C_prev.at(i) = C_rows_prev[i] - C_rows_prev[j];
     }
 
     // Матрица C может оказаться плохой 
@@ -300,12 +303,37 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<double> x_est = dfs_prev.x + dx_est;
 
     // Чистое интегрирование в приращениях
-    dfs.x = x_est;
-    dfs.dx = dx_est;
-    dfs_prev = dfs;
-    solution.position = dfs.x;
-    solution.is_solved = true;
-    return solution;
+    // dfs.x = x_est;
+    // dfs.dx = dx_est;
+    // dfs_prev = dfs;
+    // solution.position = dfs.x;
+    // solution.is_solved = true;
+    // return solution;
+
+    // Строим оценку вектора измерений (3.55)
+    std::vector<double> x_m_est = C * x_est;
+    std::vector<double> dx_m_est = (C - C_prev) * dfs_prev.x + C * dx_est; // Вместо x_est с предыдущего шага используем x
+
+    // std::cout << abs(C * dx_est) << ' ' << abs((C - C_prev) * dfs_prev.x) << std::endl;
+    // std::cout << C * dx_est << std::endl;
+    // std::cout << (C - C_prev) * dfs_prev.x << std::endl;
+    // std::cout << std::endl;
+
+    // Собираем все в векторы кси     
+    std::vector<double> xi_est(6);
+    for (size_t i = 0; i < 3; i++) {
+        xi_est[i] = x_est[i];
+        xi_est[i + 3] = dx_est[i];
+    }
+    
+    std::vector<double> xi_m_est(n * 2);
+    for (size_t i = 0; i < n; i++) {
+        xi_m_est[i] = x_m_est[i];
+        xi_m_est[i + n] = dx_m_est[i];
+    }
+
+    // std::cout << xi_m_est - C0 * xi_est << std::endl;
+    // xi_m_est = C0 * xi_est;
 
     // дебаг
     logger.log("prev dx: " + std::to_string(abs(dfs_prev.dx)));
@@ -313,27 +341,18 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     logger.log("dx_est:  " + std::to_string(abs(dx_est)));
     logger.log("x_est:   " + std::to_string(abs(x_est))); 
 
-    // Строим оценку вектора состояния
-    std::vector<double> xi_est(6);
-    for (size_t i = 0; i < 3; i++) {
-        xi_est[i] = x_est[i];
-        xi_est[i + 3] = dx_est[i];
-    }
-
-    // Строим оценку вектора измерений из оценки вектора состояния
-    std::vector<double> xi_m_est = C0 * xi_est;
-
     // Строим матрицу, обратную матрице B
     Matrix B1(6, 6);
-    // B1.insert(E, 0, 0);
-    // B1.insert(E * (-1), 0, 3);
-    // B1.insert(derivative * (-1), 3, 0);
-    // B1.insert(E + derivative - Omega * dt * 2, 3, 3);
-    B1.insert(E + derivative, 0, 0);
-    B1.insert(E + Omega * dt * 2, 0, 3);
-    B1.insert(derivative, 3, 0);
-    B1.insert(E + Omega * dt * 2, 3, 3);
-    B1 = B1.inverse(); // Ниче не меняется
+    B1.insert(E, 0, 0);
+    B1.insert(E * (-1), 0, 3);
+    B1.insert(derivative * (-1), 3, 0);
+    B1.insert(E + derivative - Omega * dt * 2, 3, 3);
+
+    // Сглаживание измерений
+    for (size_t i = 0; i < 3; i++) {
+        xi_m[i] = 1 / T_p * xi_m[i] + (T_p - 1) / T_p * xi_m[i + 3];
+        xi_m_est[i] = 1 / T_p * xi_m_est[i] + (T_p - 1) / T_p * xi_m_est[i + 3];
+    }
 
     // Динамическая фильтрация
     std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
