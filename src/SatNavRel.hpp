@@ -32,7 +32,10 @@ public:
     SatNav& act;
 
 private:
-    // Обрабатываем сырые измерения (учитываем различные эффекты + считаем положение НКА)
+    // Проверяем что с сырыми измерениями все ок
+    bool check_raw(const RawMeasurement& raw_m);
+
+    // Обрабатываем сырые измерения
     RefinedMeasurement refine_raw(const RawMeasurement& raw_m_pas, const RawMeasurement& raw_m_act);
 
     // Находим вектор состояния
@@ -49,12 +52,15 @@ private:
     const double c = 2.99792458e8;
     const double earth_rotation_rate = 7.2921151467e-5;
     const double earth_mu = 3.986004418e14;
+    const double CN0_constant = 3.01029995664;
 
-    const double GDOP0 = 5;
+    const double GDOP0 = 3;
+    const double CN0_min = 20;
+    const double CN0_max = 70;
 
     // Глобальные перменные динамического фильтра
-    double T_x = 0;
-    double T_v = 0;
+    double T_x = 3e2;
+    double T_v = 3e2;
     double T_p = 1;
     Matrix lambda = Matrix(6, 6, 0.0);
     Matrix W = Matrix(6, 6, 0.0);

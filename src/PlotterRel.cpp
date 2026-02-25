@@ -11,6 +11,7 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
 
     file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
+    file << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
         if (!ss.is_solved) continue;
@@ -21,9 +22,78 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
-        double error_norm = abs(ss.position - ts.position);
+        double error_norm = abs(ts.position - ss.position);
         
         file << time << sep << error_norm << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
+void PlotterRel::plot_errors_proj(double ymin, double ymax) {
+    std::string filename = "rel-errors-proj";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Проекция ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
+    
+    for (const auto& ss : problem.get_solution_states()) {
+        if (!ss.is_solved) continue;
+
+        unsigned time = ss.time;
+
+        auto ts_it = problem.get_true_state_iterator(time);
+        if (ts_it == problem.get_true_states().end()) continue;
+        State ts = *ts_it;
+
+        std::vector<double> error = ts.position - ss.position;
+        
+        file << time << sep << error[0] << sep << error[1] << sep << error[2] << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
+void PlotterRel::plot_true_norm(double ymin, double ymax) {
+    std::string filename = "true-norm";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Расстояние между аппаратами" << '\t' << "Время, с" << '\t' << "Расстояние, м" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << std::endl;
+
+    for (const auto& ts : problem.get_true_states()) {
+        unsigned time = ts.time;
+        double true_norm = abs(ts.position);
+        
+        file << time << sep << true_norm << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
+void PlotterRel::plot_true_proj(double ymin, double ymax) { // Сделать легенду
+    std::string filename = "true-proj";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Расстояние между аппаратами вдоль осей" << '\t' << "Время, с" << '\t' << "Расстояние, м" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
+    
+    for (const auto& ts : problem.get_true_states()) {
+        unsigned time = ts.time;
+        
+        file << time << sep << ts.position[0] << sep << ts.position[1] << sep << ts.position[2] << std::endl;
     }
 
     file.close();

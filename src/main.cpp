@@ -24,9 +24,10 @@ int main() {
     SatNav problem2 = SatNav("GNV1B_2005-12-10_B_02.dat", "GPS1B_2005-12-10_B_02.dat", handler);
 
     SatNavRel problem_rel(problem1, problem2);
-    // PlotterRel plotter(problem_rel, 187444800, 187444800 + 20000);
+    // PlotterRel plotter(problem_rel, 187444800, 187444800 + 10000);
     PlotterRel plotter(problem_rel, 0, 0);
-    plotter.plot_errors_norm(0, 5);
+    plotter.plot_errors_norm(0, 2);
+    plotter.plot_errors_proj(-2, 2);
 
     return 0;
 }

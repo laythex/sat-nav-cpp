@@ -14,6 +14,9 @@ class PlotterRel {
 public:
     PlotterRel(const SatNavRel& sn, double ti = 0, double tf = 0);
     void plot_errors_norm(double ymin = 0, double ymax = 0);
+    void plot_errors_proj(double ymin = 0, double ymax = 0);
+    void plot_true_norm(double ymin = 0, double ymax = 0);
+    void plot_true_proj(double ymin = 0, double ymax = 0);
 
 private:
     void run_py_plotter(const std::string& arg) const;

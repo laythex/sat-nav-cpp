@@ -10,11 +10,14 @@ plot_path = f'../plots/{args[1]}.png'
 with open(data_path) as header:
     title, x_label, y_label = header.readline().rstrip().split('\t')
     y_min, y_max = map(float, header.readline().rstrip().split('\t'))
+    legend_labels = header.readline().rstrip().split('\t')
 
-data = pd.read_csv(data_path, skiprows=2)
+has_legend = not (len(legend_labels) == 1 and legend_labels[0] == '')
+
+data = pd.read_csv(data_path, skiprows=3)
 
 for i in range(1, data.shape[1]):
-    plt.plot(data.iloc[:, 0], data.iloc[:, i])
+    plt.plot(data.iloc[:, 0], data.iloc[:, i], label='' if not has_legend else legend_labels[i - 1])
     plt.scatter(data.iloc[:, 0], data.iloc[:, i], s=3)
 
 y_lim = y_min != 0 or y_max != 0
@@ -28,5 +31,8 @@ plt.grid()
 plt.xlabel(x_label)
 plt.ylabel(y_label)
 plt.title(title)
+
+if has_legend: 
+    plt.legend()
 
 plt.savefig(plot_path, dpi=300)
