@@ -139,13 +139,10 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // То, что надо пронести на следующую итерацию
     DynamicFilterState dfs;
     dfs.time = ref_mg.time;
-    if (dfs_prev.time == 0) dfs.is_first = true; // Самая первая итерация
-    if (dfs_prev.is_failed) dfs.is_first = true; // Последняя итерация не удалась - начинаем заново
-    if (dfs_prev.is_first) dfs.is_second = true; // полукостыль
 
     // Находим решение пассивного КА
     auto ss_pas_it = pas.get_solution_state_iterator(ref_mg.time);
-    if (ss_pas_it == pas.get_solution_states().end() || !(ss_pas_it->is_solved)) { // Лишние скобки?
+    if (ss_pas_it == pas.get_solution_states().end() || !(ss_pas_it->is_solved)) {
         solution.is_solved = false;
         solution.failure_type = 'P'; // Решение пассивного не нашлось
 
@@ -171,6 +168,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     }
     SolutionState ss_act = *ss_act_it;
 
+    // ПЕРВАЯ ИТЕРАЦИЯ И ОТСТУТСТВИЕ ОДИНОЧНЫХ РЕШЕНИЙ
+
     // Грубое решение для дельт
     std::vector<double> coarse = ss_act.position - ss_pas.position;
 
@@ -193,27 +192,13 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dfs.C_rows[prn_index] = X_gps_minus_X_pas / X_gps_minus_X_pas_norm;
     }
 
-    /*
-        1 шаг:
-        xi_m_2
-
-        2 шаг:
-        xi_m_1, d_xi_m_2, C => x, dx - из системы
-
-        3 шаг:
-        x_m_1, d_xi_m_2, С
-        из прогноза x, dx
-        решаем ДФ
-    */
-
-    // Обрабатываем 1 шаг
-    if (dfs.is_first) {
+    // Тут завершаем первую итерацию
+    if (dfs.is_first) {        
         dfs_prev = dfs;
-
-        // К этому моменту в дфс лежат маска и xi_m_2
+ 
         solution.is_solved = false;
-        solution.position = dfs.x; // для отладки (для отображения в логах)
         solution.failure_type = 'F';
+
         return solution;
     }
 
@@ -245,58 +230,15 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         C_prev.at(i) = C_rows_prev_temp[i] - C_rows_prev_temp[j];
     }
 
-    // Матрица C может оказаться плохой 
-    try {
-        Matrix C1 = (C.transpose() * C).inverse();
-        double c = sqrt(C1.trace());
-        logger.log("c: " + std::to_string(c));
-        if (c > GDOP0) {
-            dfs.is_failed = true;
-            dfs_prev = dfs;
-
-            solution.is_solved = false;
-            solution.failure_type = 'c';
-            return solution;  
-        }
-    } catch (std::runtime_error e) {
-        dfs.is_failed = true;
-        dfs_prev = dfs;
-
-        solution.is_solved = false;
-        solution.failure_type = 'C';
-        return solution; 
-    }
-
-    if (dfs.is_failed) {
-        
-    }
-
     // Строим матрицу C0
     Matrix C0(n * 2, 6, 0.0);
     C0.insert(C, 0, 0);
     C0.insert(C, n, 3);
-    
-    // Обрабатываем 2 шаг
-    if (dfs.is_second) {
-        std::vector<double> xi = (C0.transpose() * C0).inverse() * C0.transpose() * xi_m; // На этом шаге пока без прогнозов и ДФ
-        for (size_t i = 0; i < 3; i++) {
-            dfs.x[i] = xi[i];
-            dfs.dx[i] = xi[i + 3];
-        }
-        dfs_prev = dfs;
-        W = Matrix(6, 6, 0.0); // Обнуляем матрицу W
-
-        // К этому моменту в дфс лежит маска, xi_m_2, x и dx => готовы начать со следующего шага
-        solution.is_solved = false;
-        solution.position = dfs.x; // для отладки (для отображения в логах)
-        solution.failure_type = 'S';
-        return solution;
-    }
 
     // Нужные вещи
     double dt = dfs.time - dfs_prev.time;
     Matrix E = identity(3);
-    Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}}; // Сделать нормальную матрицу поворота?
+    Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}};
     double X_norm = abs(dfs_prev.pas_pos);
     double omega2 = earth_mu / (X_norm * X_norm * X_norm);
     Matrix X_prod_X_T = col_by_row(dfs_prev.pas_pos, dfs_prev.pas_pos);
@@ -320,14 +262,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     std::vector<double> dx_est = (E + Omega * dt * 2) * dfs_prev.dx - Omega * Omega * dfs_prev.x * dt * dt - (dfs_prev.x - dfs_prev.pas_pos * del) * omega2 * dt * dt;
     std::vector<double> x_est = dfs_prev.x + dx_est;
-
-    // Чистое интегрирование в приращениях
-    // dfs.x = x_est;
-    // dfs.dx = dx_est;
-    // dfs_prev = dfs;
-    // solution.position = dfs.x;
-    // solution.is_solved = true;
-    // return solution;
 
     // Строим оценку вектора измерений (3.55)
     std::vector<double> x_m_est = C * x_est;
@@ -354,7 +288,14 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // Динамическая фильтрация
     std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
     W = B1.transpose() * lambda * W * lambda * B1 + C0.transpose() * C0;
-    std::vector<double> d_xi = W.inverse() * P;
+
+    // Проверка обратимости W
+    std::vector<double> d_xi(6);
+    try {
+        d_xi = W.inverse() * P;
+    } catch (std::runtime_error) {
+        logger.log("W необратима");
+    }
     std::vector<double> xi = xi_est + d_xi;
 
     // Сохраняем на следующую итерацию
