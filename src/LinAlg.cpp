@@ -268,6 +268,18 @@ double abs(const std::vector<double>& a) {
     return sqrt(dot(a, a));
 }
 
+double abs(const Matrix& matrix) {
+    double res = 0;
+
+    for (size_t i = 0; i < matrix.get_rows(); i++) {
+        for (size_t j = 0; j < matrix.get_cols(); j++) {
+            res += matrix(i, j) * matrix(i, j);
+        }
+    }
+
+    return sqrt(res);
+}
+
 double angle_between(const std::vector<double>& a, const std::vector<double>& b) {
     return acos(dot(a, b) / abs(a) / abs(b));
 }

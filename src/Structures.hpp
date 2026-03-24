@@ -100,19 +100,17 @@ struct DynamicFilterState {
     int time;
     std::vector<double> x;
     std::vector<double> dx;
+    std::vector<double> pas_pos;
+    std::vector<double> d_pas_pos;
     std::vector<bool> mask;
     std::vector<double> xi_m_1;
     std::vector<double> xi_m_2;
-    std::vector<double> pas_pos;
     std::vector<std::vector<double>> C_rows;
-    bool is_first;
-    bool is_second;
-    bool is_failed;
 
     DynamicFilterState();
     DynamicFilterState(int time, 
                        const std::vector<double>& x, const std::vector<double>& dx,
+                       const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
-                       const std::vector<double>& pas_pos, const std::vector<std::vector<double>>& C_rows,
-                       bool is_first, bool is_second, bool is_failed);
+                       const std::vector<std::vector<double>>& C_rows);
 };

@@ -60,9 +60,9 @@ private:
 
     const double GDOP0 = 5;
     const double mask_angle = 10;
-    const int fadeout_time = 10;
-    const double CN0_min = 27;
-    const double CN0_max = 70;
+    const int fadeout_time = 30;
+    const double CN0_min = 20;
+    const double CN0_max = 75;
     const double hatch_constant = 1.0 / 30.0;
 
 };

@@ -255,17 +255,6 @@ bool SatNav::check_fading(const RawMeasurement& raw_m) {
     
     auto raw_mg_it = get_raw_measurement_groupped_iterator(t0);
 
-    auto it_fwd = raw_mg_it;
-    while(true) {
-        it_fwd++;
-        if (it_fwd == raw_measurements_groupped.end()) return true;
-
-        int t = it_fwd->time;
-        if (t - t0 > fadeout_time) break;
-
-        if (!it_fwd->raw_measurements[prn_index].is_present) return true;
-    }
-
     auto it_bwd = raw_mg_it;
     while(true) {
         if (it_bwd == raw_measurements_groupped.begin()) return true;
@@ -273,7 +262,7 @@ bool SatNav::check_fading(const RawMeasurement& raw_m) {
 
         int t = it_bwd->time;
         if (t0 - t > fadeout_time) break;
-
+    
         if (!it_bwd->raw_measurements[prn_index].is_present) return true;
     }
     

@@ -48,6 +48,7 @@ std::vector<double> operator/(const std::vector<double>& a, double x);
 
 double dot(const std::vector<double>& a, const std::vector<double>& b);
 double abs(const std::vector<double>& a);
+double abs(const Matrix& matrix);
 double angle_between(const std::vector<double>& a, const std::vector<double>& b);
 
 Matrix identity(size_t s);

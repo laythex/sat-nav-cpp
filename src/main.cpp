@@ -26,8 +26,10 @@ int main() {
     SatNavRel problem_rel(problem1, problem2);
     // PlotterRel plotter(problem_rel, 187444800, 187444800 + 10000);
     PlotterRel plotter(problem_rel, 0, 0);
-    plotter.plot_errors_norm(0, 2);
-    plotter.plot_errors_proj(-2, 2);
+
+    double m = 10;
+    plotter.plot_errors_norm(0, m);
+    plotter.plot_errors_proj(-m, m);
 
     return 0;
 }
