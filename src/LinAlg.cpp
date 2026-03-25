@@ -49,6 +49,10 @@ Matrix Matrix::operator+(const Matrix& other) const {
     return res;
 }
 
+Matrix Matrix::operator-() const {
+    return (*this) * (-1);
+}
+
 Matrix Matrix::operator-(const Matrix& other) const {
     return (*this) + other * (-1.0);
 }
@@ -108,6 +112,9 @@ Matrix Matrix::transpose() const {
 }
 
 Matrix Matrix::inverse() const {
+    double singular_tol = 1e-13;
+    double cond_tol = 1e8;
+
     Matrix aug(rows, rows * 2);
 
     for (size_t i = 0; i < rows; i++) {
@@ -116,6 +123,9 @@ Matrix Matrix::inverse() const {
         }
         aug.at(i, rows + i) = 1.0;
     }
+
+    double max_pivot = 0.0;
+    double min_pivot = std::numeric_limits<double>::infinity();
 
     for (size_t p = 0; p < rows; p++) {
 
@@ -132,7 +142,10 @@ Matrix Matrix::inverse() const {
             aug.at(max_row, i) = tmp;
         }
 
-        if (std::abs(aug(p, p)) < 1e-13) {
+        double pivot = std::abs(aug(p, p));
+        if (pivot > max_pivot) max_pivot = pivot;
+        if (pivot < min_pivot) min_pivot = pivot;
+        if (pivot <= singular_tol * max_pivot) {
             throw std::runtime_error("Singular matrix");
         }
 
@@ -142,6 +155,11 @@ Matrix Matrix::inverse() const {
                 aug.at(i, j) -= factor * aug(p, j);
             }
         }
+    }
+
+    double rough_cond = max_pivot / min_pivot;
+    if (rough_cond > 1e8) {
+        throw std::runtime_error("Ill-conditioned matrix");
     }
 
     for (size_t p1 = rows; p1 > 0; p1--) {
@@ -234,24 +252,20 @@ std::vector<double> operator*(const std::vector<double>& a, double x) {
     return res;
 }
 
+std::vector<double> operator*(double x, const std::vector<double>& a) {
+    return a * x;
+}
+
 double operator*(const std::vector<double>& a, const std::vector<double>& b) {
     return dot(a, b);
 }
 
-Matrix col_by_row(const std::vector<double>& a, const std::vector<double>& b) {
-    Matrix res(a.size(), b.size());
-
-    for (size_t i = 0; i < a.size(); i++) {
-        for (size_t j = 0; j < b.size(); j++) {
-            res.at(i, j) = a[i] * b[j];
-        }
-    }
-
-    return res;
-}
-
 std::vector<double> operator/(const std::vector<double>& a, double x) {
     return a * (1.0 / x);
+}
+
+Matrix operator*(double x, const Matrix& matrix) {
+    return matrix * x;
 }
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
@@ -259,6 +273,18 @@ double dot(const std::vector<double>& a, const std::vector<double>& b) {
 
     for (size_t i = 0; i < a.size(); i++) {
         res += a[i] * b[i];
+    }
+
+    return res;
+}
+
+Matrix tensor(const std::vector<double>& a, const std::vector<double>& b) {
+    Matrix res(a.size(), b.size());
+
+    for (size_t i = 0; i < a.size(); i++) {
+        for (size_t j = 0; j < b.size(); j++) {
+            res.at(i, j) = a[i] * b[j];
+        }
     }
 
     return res;

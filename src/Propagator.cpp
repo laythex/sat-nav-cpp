@@ -63,7 +63,7 @@ std::vector<double> Propagator::rhs_rel(const std::vector<double>& arg, const st
 
     double r_pas = abs(pos_pas); 
     double k = 3 * -3.986004418e14 / (r_pas * r_pas * r_pas * r_pas * r_pas);
-    std::vector<double> acc = col_by_row(pos_pas, pos_pas) * pos * k;
+    std::vector<double> acc = tensor(pos_pas, pos_pas) * pos * k;
 
     return {vel[0], vel[1], vel[2], acc[0], acc[1], acc[2]};
 }

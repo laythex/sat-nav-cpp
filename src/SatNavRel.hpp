@@ -43,7 +43,7 @@ private:
 
     std::vector<double> estimate_dx();
     std::vector<double> estimate_dpp();
-    Matrix calculate_B1(const std::vector<double>& pas_pos);
+    Matrix calculate_B1();
 
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
@@ -58,17 +58,16 @@ private:
     const double earth_mu = 3.986004418e14;
     const double CN0_constant = 3.01029995664;
 
-    const double GDOP0 = 3;
-    const double CN0_min = 28;
+    const double CN0_min = 10;
     const double CN0_max = 65;
 
     // Глобальные перменные динамического фильтра
     bool df_started = false;
-    bool df_half_started = false;
-    double T_x = 100;
-    double T_v = 100;
+    double T_x = 10;
+    double T_v = T_x;
     double T_p = 1;
-    Matrix lambda = Matrix(6, 6, 0.0);
+    Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},
+                      {0, 0, 0, T_v / (T_v + 1), 0, 0}, {0, 0, 0, 0, T_v / (T_v + 1), 0}, {0, 0, 0, 0, 0, T_v / (T_v + 1)}}};
     Matrix E3 = identity(3);
     Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}};
     Matrix W = Matrix(6, 6, 0.0);

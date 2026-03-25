@@ -20,6 +20,7 @@ public:
     void insert(const Matrix& m, size_t i, size_t j);
 
     Matrix operator+(const Matrix& other) const;
+    Matrix operator-() const;
     Matrix operator-(const Matrix& other) const;
     Matrix operator*(double x) const;
     std::vector<double> operator*(const std::vector<double>& a) const;
@@ -42,11 +43,15 @@ std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a);
 std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator*(const std::vector<double>& a, double x);
+std::vector<double> operator*(double x, const std::vector<double>& a);
 double operator*(const std::vector<double>& a, const std::vector<double>& b);
-Matrix col_by_row(const std::vector<double>& a, const std::vector<double>& b);
 std::vector<double> operator/(const std::vector<double>& a, double x);
 
+Matrix operator*(double x, const Matrix& matrix);
+
 double dot(const std::vector<double>& a, const std::vector<double>& b);
+Matrix tensor(const std::vector<double>& a, const std::vector<double>& b);
+
 double abs(const std::vector<double>& a);
 double abs(const Matrix& matrix);
 double angle_between(const std::vector<double>& a, const std::vector<double>& b);

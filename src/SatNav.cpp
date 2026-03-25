@@ -214,9 +214,9 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
         Matrix B1(4, 4);
         try {
             B1 = (B.transpose() * B).inverse();
-        } catch (std::runtime_error re) {
+        } catch (std::runtime_error e) {
             solution.is_solved = false;
-            solution.failure_type = 'I';
+            solution.failure_type = 'g';
             return solution;
         }
 
