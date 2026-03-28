@@ -25,6 +25,10 @@ double& Matrix::at(size_t i, size_t j) {
     return data[i][j];
 }
 
+std::vector<double> Matrix::operator()(size_t i) const {
+    return data[i];
+}
+
 std::vector<double>& Matrix::at(size_t i) {
     return data[i];
 }
@@ -199,6 +203,22 @@ double Matrix::trace() const {
     return res;
 }
 
+double Matrix::norm() const {
+    double res = 0;
+
+    for (size_t i = 0; i < rows; i++) {
+        double row_abs_sum = 0;
+        for (size_t j = 0; j < cols; j++) {
+            row_abs_sum += std::abs(operator()(i, j));
+        }
+        if (row_abs_sum > res) {
+            res = row_abs_sum;
+        }
+    }
+
+    return res;
+}
+
 std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
     for (size_t i = 0; i < matrix.get_rows(); i++) {
         for (size_t j = 0; j < matrix.get_cols(); j++) {
@@ -295,25 +315,21 @@ double abs(const std::vector<double>& a) {
 }
 
 double abs(const Matrix& matrix) {
-    double res = 0;
-
-    for (size_t i = 0; i < matrix.get_rows(); i++) {
-        for (size_t j = 0; j < matrix.get_cols(); j++) {
-            res += matrix(i, j) * matrix(i, j);
-        }
-    }
-
-    return sqrt(res);
+    return matrix.norm();
 }
 
 double angle_between(const std::vector<double>& a, const std::vector<double>& b) {
     return acos(dot(a, b) / abs(a) / abs(b));
 }
 
-Matrix identity(size_t s) {
-    Matrix res(s, s);
+Matrix zero(size_t r, size_t c) {
+    return Matrix(r, c);
+}
 
-    for (size_t i = 0; i < s; i++) {
+Matrix identity(size_t r) {
+    Matrix res(r, r);
+
+    for (size_t i = 0; i < r; i++) {
         res.at(i, i) = 1.0;
     }
 
@@ -348,4 +364,19 @@ Matrix rotation(double angle, char axis) {
     }
 
     return res;
+}
+
+size_t find_max_abs(const std::vector<double>& a) {
+    size_t max_at = 0;
+    double max_el = 0;
+
+    for (size_t i = 0; i < a.size(); i++) {
+        double el = std::abs(a[i]);
+        if (el > max_el) {
+            max_el = el;
+            max_at = i;
+        }
+    }
+
+    return max_at;
 }

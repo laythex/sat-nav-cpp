@@ -63,13 +63,13 @@ RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
                                                        time(time), refined_measurements(refined_measurements) {}
 
 // Костыль во времени
-DynamicFilterState::DynamicFilterState() : time(187444800), x(3), dx(3), pas_pos(3), d_pas_pos(3), mask(32, false), xi_m_1(32), xi_m_2(32), C_rows(32) {}
+DynamicFilterState::DynamicFilterState() : time(187444800), x(3), dx(3), pas_pos(3), d_pas_pos(3), mask(32, false), xi_m_1(32), xi_m_2(32), C_rows(32), x_est(3) {}
 DynamicFilterState::DynamicFilterState(int time, 
                                        const std::vector<double>& x, const std::vector<double>& dx,
                                        const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
                                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
-                                       const std::vector<std::vector<double>>& C_rows) : 
+                                       const std::vector<std::vector<double>>& C_rows, const std::vector<double>& x_est) : 
                                        time(time), x(x), dx(dx), 
                                        pas_pos(pas_pos), d_pas_pos(d_pas_pos),
                                        mask(mask), xi_m_1(xi_m_1), xi_m_2(xi_m_2),
-                                       C_rows(C_rows) {}
+                                       C_rows(C_rows), x_est(x_est) {}

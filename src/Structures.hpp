@@ -106,11 +106,12 @@ struct DynamicFilterState {
     std::vector<double> xi_m_1;
     std::vector<double> xi_m_2;
     std::vector<std::vector<double>> C_rows;
+    std::vector<double> x_est;
 
     DynamicFilterState();
     DynamicFilterState(int time, 
                        const std::vector<double>& x, const std::vector<double>& dx,
                        const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
-                       const std::vector<std::vector<double>>& C_rows);
+                       const std::vector<std::vector<double>>& C_rows, const std::vector<double>& x_est);
 };

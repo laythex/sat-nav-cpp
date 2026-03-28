@@ -16,6 +16,7 @@ public:
     double operator()(size_t i, size_t j) const;
     double& at(size_t i, size_t j);
 
+    std::vector<double> operator()(size_t i) const;
     std::vector<double>& at(size_t i);
     void insert(const Matrix& m, size_t i, size_t j);
 
@@ -30,6 +31,7 @@ public:
     Matrix transpose() const;
     Matrix inverse() const;
     double trace() const;
+    double norm() const;
 
 private:
     size_t rows, cols;
@@ -53,11 +55,14 @@ double dot(const std::vector<double>& a, const std::vector<double>& b);
 Matrix tensor(const std::vector<double>& a, const std::vector<double>& b);
 
 double abs(const std::vector<double>& a);
-double abs(const Matrix& matrix);
+double abs(const Matrix& matrix); // Заменить на более простую норму
 double angle_between(const std::vector<double>& a, const std::vector<double>& b);
 
-Matrix identity(size_t s);
+Matrix zero(size_t r, size_t c);
+Matrix identity(size_t r);
 Matrix rotation(double angle, char axis);
+
+size_t find_max_abs(const std::vector<double>& a);
 
 template <typename T>
 std::vector<T> mask(const std::vector<T>& a, const std::vector<bool> m) {

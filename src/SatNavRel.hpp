@@ -58,19 +58,21 @@ private:
     const double earth_mu = 3.986004418e14;
     const double CN0_constant = 3.01029995664;
 
-    const double CN0_min = 10;
-    const double CN0_max = 65;
+    const double CN0_min_threshold = 25;
+    const double CN0_max_threshold = 65;
 
     // Глобальные перменные динамического фильтра
-    bool df_started = false;
-    double T_x = 10;
+    int df_state = 0;
+    double T_x = 100;
     double T_v = T_x;
-    double T_p = 1;
+    double T_p = 2;
     Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},
                       {0, 0, 0, T_v / (T_v + 1), 0, 0}, {0, 0, 0, 0, T_v / (T_v + 1), 0}, {0, 0, 0, 0, 0, T_v / (T_v + 1)}}};
     Matrix E3 = identity(3);
     Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}};
     Matrix W = Matrix(6, 6, 0.0);
+
+    const double xi_m_diff_threshold = 1;
 
     // Предыдущее состояние системы для динамической фильтрации
     DynamicFilterState dfs_prev;
