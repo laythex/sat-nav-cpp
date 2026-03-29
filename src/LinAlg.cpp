@@ -366,6 +366,10 @@ Matrix rotation(double angle, char axis) {
     return res;
 }
 
+double dist_to_bounds(double x, double lo, double hi) {
+    return std::min(x - lo, hi - x);
+}
+
 size_t find_max_abs(const std::vector<double>& a) {
     size_t max_at = 0;
     double max_el = 0;

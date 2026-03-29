@@ -62,6 +62,8 @@ Matrix zero(size_t r, size_t c);
 Matrix identity(size_t r);
 Matrix rotation(double angle, char axis);
 
+double dist_to_bounds(double x, double lo, double hi);
+
 size_t find_max_abs(const std::vector<double>& a);
 
 template <typename T>
