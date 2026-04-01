@@ -20,6 +20,12 @@ namespace DataParser {
     std::vector<State> load_grace_gnv_data(const std::string& filename);
 
     std::vector<RawMeasurementGroupped> load_grace_gps_data(const std::string& filename);
+
+    std::vector<AccelerationMeasurement> load_grace_acc_data(const std::string& filename);
     
+    std::vector<State> load_swarm_nav_data(const std::string& filename);
+
+    std::vector<RawMeasurementGroupped> load_swarm_gps_data(const std::string& filename);
+
     std::vector<std::vector<Ephemeris>> load_brdc_data(const std::string& filename);
 };

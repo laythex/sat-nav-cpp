@@ -16,7 +16,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
     std::vector<State> true_states;
 
     std::ifstream file;
-    file.open("../data/gnv/" + filename, std::ios::in);
+    file.open("../data/grace/gnv/" + filename, std::ios::in);
 
     std::string line;
 
@@ -68,7 +68,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
     int gps_time_current = 0;
     
     std::ifstream file;
-    file.open("../data/gps/" + filename, std::ios::in);
+    file.open("../data/grace/gps/" + filename, std::ios::in);
 
     std::string line;
 
@@ -171,7 +171,7 @@ std::vector<State> DataParser::load_grace_gnv_data(const std::string& filename) 
     std::vector<State> true_states;
 
     std::ifstream file;
-    file.open("../data/gnv/" + filename, std::ios::binary);
+    file.open("../data/grace/gnv/" + filename, std::ios::binary);
 
     std::string line;
     unsigned skiprows = 26;
@@ -222,7 +222,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
     int gps_time_current = 0;
     
     std::ifstream file;
-    file.open("../data/gps/" + filename, std::ios::binary);
+    file.open("../data/grace/gps/" + filename, std::ios::binary);
 
     std::string line;
     unsigned skiprows = 24;
@@ -233,7 +233,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
     char record[74];
     while (!file.eof()) {
         file.read(record, 4); 
-        int gps_time = bytes_to_T_endian(record, int()); // сделать микросекунды?
+        int gps_time = bytes_to_T_endian(record, int());
         
         if (static_cast<int>(record[0]) == 0) break;
 
@@ -297,12 +297,117 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
     return raw_mgs;
 }
 
+std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::string& filename) {
+    std::vector<AccelerationMeasurement> acc_ms;
+
+    std::ifstream file;
+    file.open("../data/grace/acc/" + filename, std::ios::binary);
+
+    std::string line;
+    unsigned skiprows = 24;
+    for (unsigned i = 0; i < skiprows; ++i) {
+        std::getline(file, line);
+    }
+
+    char record[78];
+    while (!file.eof()) {
+        file.read(record, 4);
+        int gps_time = bytes_to_T_endian(record, int());
+
+        if (static_cast<int>(record[0]) == 0) break;
+
+        file.read(record, 1);
+
+        file.read(record, 8);
+        double lin_accl_x = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double lin_accl_y = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double lin_accl_z = bytes_to_T_endian(record, double());
+
+        file.read(record, 8);
+        double ang_accl_x = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double ang_accl_y = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double ang_accl_z = bytes_to_T_endian(record, double());
+
+        file.read(record, 8);
+        double acl_x_res = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double acl_y_res = bytes_to_T_endian(record, double());
+        file.read(record, 8);
+        double acl_z_res = bytes_to_T_endian(record, double());
+
+        file.read(record, 1);
+
+        std::vector<double> lin_acc = {lin_accl_x, lin_accl_y, lin_accl_z};
+        std::vector<double> ang_acc = {ang_accl_x, ang_accl_y, ang_accl_z};
+        acc_ms.push_back({gps_time, lin_acc, ang_acc});
+    }
+
+    file.close();
+
+    return acc_ms;
+}
+
+std::vector<State> DataParser::load_swarm_nav_data(const std::string& filename) {
+    std::vector<State> true_states;
+
+    std::ifstream file;
+    file.open("../data/swarm/nav/" + filename, std::ios::in);
+
+    std::string line;
+
+    unsigned skiprows = 22;
+    for (unsigned i = 0; i < skiprows; ++i) {
+        std::getline(file, line);
+    }
+
+    int count = 0;
+    while (std::getline(file, line)) {
+        int year = std::stoi(line.substr(3, 4));
+        int month = std::stoi(line.substr(8, 2));
+        int day = std::stoi(line.substr(11, 2));
+        int hours = std::stoi(line.substr(14, 2));
+        int minutes = std::stoi(line.substr(17, 2));
+        int seconds = std::stoi(line.substr(20, 2));
+
+        std::getline(file, line);
+
+        double xpos = std::stod(line.substr(5, 13));
+        double ypos = std::stod(line.substr(19, 13));
+        double zpos = std::stod(line.substr(33, 13));
+
+        std::getline(file, line);
+
+        double xvel = std::stod(line.substr(5, 13));
+        double yvel = std::stod(line.substr(19, 13));
+        double zvel = std::stod(line.substr(33, 13));
+
+        int seconds_since_midnight = seconds + minutes * 60 + hours * 3600;
+
+        std::vector<double> position = {xpos, ypos, zpos};
+        std::vector<double> velocity = {xvel, yvel, zvel};
+        true_states.push_back({seconds_since_midnight, position, velocity}); // Перевести в gps_time?
+    }
+
+    file.close();
+
+    return true_states;
+}
+
+std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const std::string& filename) {
+
+}
+
+// Неправильно используется сабстр
 std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string& filename) {
     std::vector<std::vector<Ephemeris>> ephs(32);
     Ephemeris eph;
 
     std::ifstream file;
-    file.open("../data/brdc/" + filename, std::ios::in);
+    file.open("../data/gps/brdc/" + filename, std::ios::in);
 
     std::string line;
 
@@ -359,3 +464,4 @@ std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string
 
     return ephs;
 }
+

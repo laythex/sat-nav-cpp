@@ -115,3 +115,14 @@ struct DynamicFilterState {
                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
                        const std::vector<std::vector<double>>& C_rows, const std::vector<double>& x_est);
 };
+
+struct AccelerationMeasurement {
+    int time;
+    std::vector<double> linear_acceleration;
+    std::vector<double> angular_acceleration;
+
+    AccelerationMeasurement();
+    AccelerationMeasurement(int time,
+                            const std::vector<double>& linear_acceleration,
+                            const std::vector<double>& angular_acceleration);
+};

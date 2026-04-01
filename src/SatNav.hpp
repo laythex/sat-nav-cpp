@@ -16,7 +16,33 @@ class SatNavRel;
 class SatNav {
 
 public:
-    SatNav(const std::string& gnv_filename, const std::string& gps_filename, const GPSHandler& handler);
+    enum class GRACE_SATS {
+        A, B, C, D
+    };
+
+    enum class SWARM_SATS {
+        A, B, C
+    };
+
+    constexpr char graceSatToChar(GRACE_SATS sat) {
+        switch (sat) {
+            case GRACE_SATS::A:   return 'A';
+            case GRACE_SATS::B:   return 'B';
+            case GRACE_SATS::C:   return 'C';
+            case GRACE_SATS::D:   return 'D';
+        }
+    }
+
+    constexpr char swarmSatToChar(SWARM_SATS sat) {
+        switch (sat) {
+            case SWARM_SATS::A:   return 'A';
+            case SWARM_SATS::B:   return 'B';
+            case SWARM_SATS::C:   return 'C';
+        }
+    }
+
+    SatNav(const std::string& date, const GRACE_SATS sat, char version, const GPSHandler& handler);
+    SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
     void solve(char et = '0', int ti = 0, int tf = 0);
@@ -25,6 +51,7 @@ public:
     const std::vector<SolutionState>& get_solution_states() const;
     const std::vector<RawMeasurementGroupped>& get_raw_measurements_groupped() const;
     const std::vector<RefinedMeasurementGroupped>& get_refined_measurements_groupped() const;
+    const std::vector<AccelerationMeasurement>& get_acceleration_measurements() const;
 
     std::vector<State>::const_iterator get_true_state_iterator(int time) const;
     std::vector<SolutionState>::const_iterator get_solution_state_iterator(int time) const;
@@ -47,6 +74,7 @@ private:
     std::vector<SolutionState> solution_states;
     std::vector<RawMeasurementGroupped> raw_measurements_groupped;
     std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
+    std::vector<AccelerationMeasurement> acceleration_measurements;
 
     Logger logger;
 

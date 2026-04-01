@@ -62,8 +62,7 @@ RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}
 
-// Костыль во времени
-DynamicFilterState::DynamicFilterState() : time(187444800), x(3), dx(3), pas_pos(3), d_pas_pos(3), mask(32, false), xi_m_1(32), xi_m_2(32), C_rows(32), x_est(3) {}
+DynamicFilterState::DynamicFilterState() : time(0), x(3), dx(3), pas_pos(3), d_pas_pos(3), mask(32, false), xi_m_1(32), xi_m_2(32), C_rows(32), x_est(3) {}
 DynamicFilterState::DynamicFilterState(int time, 
                                        const std::vector<double>& x, const std::vector<double>& dx,
                                        const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
@@ -73,3 +72,11 @@ DynamicFilterState::DynamicFilterState(int time,
                                        pas_pos(pas_pos), d_pas_pos(d_pas_pos),
                                        mask(mask), xi_m_1(xi_m_1), xi_m_2(xi_m_2),
                                        C_rows(C_rows), x_est(x_est) {}
+
+AccelerationMeasurement::AccelerationMeasurement() : time(0), linear_acceleration(3), angular_acceleration(3) {}
+AccelerationMeasurement::AccelerationMeasurement(int time,
+                                                 const std::vector<double>& linear_acceleration,
+                                                 const std::vector<double>& angular_acceleration) :
+                                                 time(time),
+                                                 linear_acceleration(linear_acceleration), 
+                                                 angular_acceleration(angular_acceleration) {}

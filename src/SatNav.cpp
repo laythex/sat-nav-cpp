@@ -1,29 +1,32 @@
 #include "SatNav.hpp"
 #include "SatNavRel.hpp"
+ 
+SatNav::SatNav(const std::string& date, const GRACE_SATS sat, char version, const GPSHandler& handler) : handler(handler) {
+    std::string gnv_filename = "GNV1B_" + date + "_" + graceSatToChar(sat) + "_0" + version + ".dat";
+    std::string gps_filename = "GPS1B_" + date + "_" + graceSatToChar(sat) + "_0" + version + ".dat";
 
-SatNav::SatNav(const std::string& gnv_filename, const std::string& gps_filename, 
-               const GPSHandler& handler) : handler(handler) {
-    char sat_gnv = gnv_filename[17];
-    char sat_gps = gps_filename[17];
-
-    if (sat_gnv != sat_gps) {
-        logger.log("Satellites in GNV and GPS don`t match");
-        return;
-    }
-
-    if (sat_gnv == 'A' || sat_gnv == 'B') {
+    bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
+    if (is_fo) {
+        true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
+        raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
+    } else {
         true_states = DataParser::load_grace_gnv_data(gnv_filename);
         raw_measurements_groupped = DataParser::load_grace_gps_data(gps_filename);
     }
-    if (sat_gnv == 'C' || sat_gnv == 'D') {
-        true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
-        raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
-    }
+}
+
+SatNav::SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
+    std::string nav_filename = std::string("SW_OPER_GPS") + swarmSatToChar(sat) + "NAV_1B_" + date + "T000000_" + date + "T235959_0602" + ".sp3";
+    std::string gps_filename = std::string("SW_OPER_GPS") + swarmSatToChar(sat) + "_RO_1B_" + date + "T000000_" + date + "T235959_0602" + ".rnx";
+
+    true_states = DataParser::load_swarm_nav_data(nav_filename);
+    raw_measurements_groupped = DataParser::load_swarm_gps_data(gps_filename);
 }
 
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
-                                   raw_measurements_groupped(sn.raw_measurements_groupped) {}
+                                   raw_measurements_groupped(sn.raw_measurements_groupped),
+                                   acceleration_measurements(sn.acceleration_measurements) {}
 
 void SatNav::solve(char et, int ti, int tf) {
     logger.log("Beginning to solve..."); // доделать логгер
@@ -325,7 +328,12 @@ const std::vector<RawMeasurementGroupped>& SatNav::get_raw_measurements_groupped
 const std::vector<RefinedMeasurementGroupped>& SatNav::get_refined_measurements_groupped() const {
     return refined_measurements_groupped;
 }
-// темплейт бинарного поиска
+
+const std::vector<AccelerationMeasurement>& SatNav::get_acceleration_measurements() const {
+    return acceleration_measurements;
+}
+
+// сделать темплейт бинарного поиска
 std::vector<State>::const_iterator SatNav::get_true_state_iterator(int time) const {
     size_t n = true_states.size();
 

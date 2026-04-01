@@ -20,6 +20,9 @@ public:
     void plot_map_norm(const std::string& mode, double threshold = 0);
     void plot_map_iono(const std::string& mode, double threshold = 0);
 
+    void plot_acc_lin_proj(double ymin = 0, double ymax = 0);
+    void plot_acc_ang_proj(double ymin = 0, double ymax = 0);
+
 private:
     void run_py_plotter(const std::string& arg) const;
     void run_py_mapper(const std::string& arg) const;

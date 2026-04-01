@@ -184,6 +184,50 @@ void Plotter::plot_map_iono(const std::string& mode, double threshold) {
     run_py_mapper(filename);
 }
 
+void Plotter::plot_acc_lin_proj(double ymin, double ymax) {
+    std::string filename = "acc-lin-proj";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Линейное ускорение вдоль осей" << '\t' << "Время, с" << '\t' << "Ускорение, м/c^2" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
+
+    for (const auto& lin_acc_m : problem.get_acceleration_measurements()) {
+        int time = lin_acc_m.time;
+
+        file << time << sep << lin_acc_m.linear_acceleration[0] << sep << 
+                               lin_acc_m.linear_acceleration[1] << sep << 
+                               lin_acc_m.linear_acceleration[2] << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
+void Plotter::plot_acc_ang_proj(double ymin, double ymax) {
+    std::string filename = "acc-ang-proj";
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Угловое ускорение вокруг осей" << '\t' << "Время, с" << '\t' << "Ускорение, рад/c^2" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
+
+    for (const auto& lin_acc_m : problem.get_acceleration_measurements()) {
+        int time = lin_acc_m.time;
+
+        file << time << sep << lin_acc_m.angular_acceleration[0] << sep << 
+                               lin_acc_m.angular_acceleration[1] << sep << 
+                               lin_acc_m.angular_acceleration[2] << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
 void Plotter::run_py_plotter(const std::string& arg) const {
     std::string command = "python3 ../scripts/plotter.py " + arg;
     system(command.c_str());

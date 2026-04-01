@@ -19,18 +19,24 @@ int main() {
     // Plotter plotter(problem, 0, 0);
     // plotter.plot_errors_norm(0, 20);
 
-    GPSHandler handler = GPSHandler("brdc3440.05n");
+    // GPSHandler handler = GPSHandler("brdc3450.05n"); // ИСПРАВИТЬ
+    // SatNav problem1 = SatNav("2005-12-11", SatNav::GRACE_SATS::A, '2', handler);
+    // SatNav problem2 = SatNav("2005-12-11", SatNav::GRACE_SATS::B, '2', handler);
 
-    SatNav problem1 = SatNav("GNV1B_2005-12-10_A_02.dat", "GPS1B_2005-12-10_A_02.dat", handler);
-    SatNav problem2 = SatNav("GNV1B_2005-12-10_B_02.dat", "GPS1B_2005-12-10_B_02.dat", handler);
+    // GPSHandler handler = GPSHandler("brdc3450.05n");
+    // SatNav problem1 = SatNav("20260301", SatNav::SWARM_SATS::A, handler);
+    // SatNav problem2 = SatNav("20260301", SatNav::SWARM_SATS::B, handler);
+    // SatNav problem3 = SatNav("20260301", SatNav::SWARM_SATS::C, handler);
 
-    SatNavRel problem_rel(problem1, problem2);
-    // PlotterRel plotter(problem_rel, 187444800, 187460000);
-    PlotterRel plotter(problem_rel, 0, 0);
+    DataParser::load_swarm_nav_data("SW_OPER_GPSANAV_1B_20260301T000000_20260301T235959_0602.sp3");
 
-    double m = 5;
-    plotter.plot_errors_norm(0, m);
-    plotter.plot_errors_proj(-m, m);
+    // SatNavRel problem_rel(problem1, problem2);
+    // PlotterRel plotter(problem_rel, 0, 0);
+
+    // double m = 5;
+    // plotter.plot_errors_norm(0, m);
+    // plotter.plot_errors_proj(-m, m);
+    // plotter.plot_true_norm(0, 0);
 
     return 0;
 }
