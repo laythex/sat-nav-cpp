@@ -50,7 +50,7 @@ struct RawMeasurement {
     unsigned prn_id;
     double L1_range, L2_range;
     double L1_phase, L2_phase;
-    unsigned short L1_SNR, L2_SNR;
+    double L1_SNR, L2_SNR;
     unsigned qualflg;
 
     RawMeasurement();
@@ -58,7 +58,7 @@ struct RawMeasurement {
                    int time, unsigned prn_id,
                    double L1_range, double L2_range,
                    double L1_phase, double L2_phase,
-                   unsigned short L1_SNR, unsigned short L2_SNR,
+                   double L1_SNR, double L2_SNR,
                    unsigned qualflg);
 };
 

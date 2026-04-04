@@ -30,6 +30,7 @@ public:
             case GRACE_SATS::B:   return 'B';
             case GRACE_SATS::C:   return 'C';
             case GRACE_SATS::D:   return 'D';
+            default: return '0';
         }
     }
 
@@ -38,6 +39,7 @@ public:
             case SWARM_SATS::A:   return 'A';
             case SWARM_SATS::B:   return 'B';
             case SWARM_SATS::C:   return 'C';
+            default: return '0';
         }
     }
 

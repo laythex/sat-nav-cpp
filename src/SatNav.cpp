@@ -29,8 +29,8 @@ SatNav::SatNav(const SatNav& sn) : handler(sn.handler),
                                    acceleration_measurements(sn.acceleration_measurements) {}
 
 void SatNav::solve(char et, int ti, int tf) {
-    logger.log("Beginning to solve..."); // доделать логгер
-
+    logger.log("Beginning to solve...");
+    std::cout << 1 << std::endl;
     error_type = et;
 
     for (const auto& raw_mg : raw_measurements_groupped) {

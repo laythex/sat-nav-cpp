@@ -1,5 +1,7 @@
 #include "Logger.hpp"
 
+#include <iostream>
+
 Logger::Logger() {
     file.open("../logs/log.txt", std::fstream::out);
 }

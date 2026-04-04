@@ -32,7 +32,7 @@ RawMeasurement::RawMeasurement(bool is_present,
                                int time, unsigned prn_id,
                                double L1_range, double L2_range,
                                double L1_phase, double L2_phase,
-                               unsigned short L1_SNR, unsigned short L2_SNR,
+                               double L1_SNR, double L2_SNR,
                                unsigned qualflg) : 
                                is_present(is_present),
                                time(time), prn_id(prn_id), 

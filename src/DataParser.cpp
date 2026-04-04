@@ -5,7 +5,7 @@ T bytes_to_T_endian(const char* bytes, T t) {
     size_t n = sizeof(T);
     char res_bytes[n];
 
-    for (unsigned i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
         res_bytes[n - i - 1] = bytes[i];
     }
 
@@ -21,7 +21,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& filenam
     std::string line;
 
     unsigned skiprows = 148;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
@@ -73,7 +73,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
     std::string line;
 
     unsigned skiprows = 196;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
@@ -133,12 +133,12 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        unsigned short L1_SNR = std::stoi(line);
+        double L1_SNR = std::stod(line);
         
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        unsigned short L2_SNR = std::stoi(line);
+        double L2_SNR = std::stod(line);
 
         RawMeasurement raw_m = {true,
                                 gps_time, prn_id,
@@ -167,6 +167,8 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
     return raw_mgs;
 }
 
+#include "LinAlg.hpp"
+
 std::vector<State> DataParser::load_grace_gnv_data(const std::string& filename) {
     std::vector<State> true_states;
 
@@ -175,9 +177,12 @@ std::vector<State> DataParser::load_grace_gnv_data(const std::string& filename) 
 
     std::string line;
     unsigned skiprows = 26;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
+
+    std::ofstream f;
+    f.open("../gnv.txt");
 
     char record[103];
     while (!file.eof()) {
@@ -209,6 +214,8 @@ std::vector<State> DataParser::load_grace_gnv_data(const std::string& filename) 
         std::vector<double> position = {xpos, ypos, zpos};
         std::vector<double> velocity = {xvel, yvel, zvel};
         true_states.push_back({gps_time, position, velocity});
+
+        f << std::fixed << gps_time << ' ' << position << ' ' << velocity << '\n';
     }
 
     file.close();
@@ -226,7 +233,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
 
     std::string line;
     unsigned skiprows = 24;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
@@ -264,9 +271,9 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
         file.read(record, 2);
 
         file.read(record, 2);
-        unsigned short L1_SNR = bytes_to_T_endian(record, (unsigned short)(0));
+        double L1_SNR = bytes_to_T_endian(record, double());
         file.read(record, 2);
-        unsigned short L2_SNR = bytes_to_T_endian(record, (unsigned short)(0));
+        double L2_SNR = bytes_to_T_endian(record, double());
 
         file.read(record, 6);
 
@@ -288,7 +295,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
             gps_time_current = gps_time;
         }
 
-        unsigned prn_index = prn_id - 1;
+        size_t prn_index = prn_id - 1;
         raw_ms[prn_index] = raw_m;
     }
 
@@ -305,7 +312,7 @@ std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::
 
     std::string line;
     unsigned skiprows = 24;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
@@ -360,12 +367,16 @@ std::vector<State> DataParser::load_swarm_nav_data(const std::string& filename) 
     std::string line;
 
     unsigned skiprows = 22;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
     int count = 0;
-    while (std::getline(file, line)) {
+    while (!file.eof()) {
+        std::getline(file, line);
+
+        if (line[0] == 'E') break;
+
         int year = std::stoi(line.substr(3, 4));
         int month = std::stoi(line.substr(8, 2));
         int day = std::stoi(line.substr(11, 2));
@@ -398,10 +409,66 @@ std::vector<State> DataParser::load_swarm_nav_data(const std::string& filename) 
 }
 
 std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const std::string& filename) {
+    std::vector<RawMeasurementGroupped> raw_mgs;
+    std::vector<RawMeasurement> raw_ms(32);
+    int gps_time_current = 0;
+    
+    std::ifstream file;
+    file.open("../data/swarm/gps/" + filename, std::ios::binary);
 
+    std::string line;
+
+    unsigned skiprows = 17;
+    for (size_t i = 0; i < skiprows; ++i) {
+        std::getline(file, line);
+    }
+
+    while (std::getline(file, line)) {
+
+        int year = std::stoi(line.substr(2, 4));
+        int month = std::stoi(line.substr(7, 2));
+        int day = std::stoi(line.substr(10, 2));
+        int hours = std::stoi(line.substr(13, 2));
+        int minutes = std::stoi(line.substr(16, 2));
+        int seconds = std::stoi(line.substr(19, 2));
+
+        int seconds_since_midnight = seconds + minutes * 60 + hours * 3600;
+
+        int sat_count = std::stoi(line.substr(33, 4));
+
+        for (size_t i = 0; i < sat_count; i++) {
+            std::getline(file, line);
+
+            unsigned prn_id = std::stoi(line.substr(1, 2));
+            double C1C = std::stod(line.substr(3, 14));
+            double L1C = std::stod(line.substr(19, 14));
+            double S1C = std::stod(line.substr(35, 14));
+            double C1W = std::stod(line.substr(51, 14));
+            double S1W = std::stod(line.substr(67, 14));
+            double C2W = std::stod(line.substr(83, 14));
+            double L2W = std::stod(line.substr(99, 14));
+            double S2W = std::stod(line.substr(115, 14));
+
+            RawMeasurement raw_m = {true,
+                                    seconds_since_midnight, prn_id,
+                                    C1C, C2W,
+                                    L1C, L2W,
+                                    S1C, S2W, 
+                                    0};
+
+            size_t prn_index = prn_id - 1;
+            raw_ms[prn_index] = raw_m;
+        }
+
+        raw_mgs.push_back({seconds_since_midnight, raw_ms});
+            
+        raw_ms.clear();
+        raw_ms.resize(32);
+    }
+
+    return raw_mgs;
 }
 
-// Неправильно используется сабстр
 std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string& filename) {
     std::vector<std::vector<Ephemeris>> ephs(32);
     Ephemeris eph;
@@ -412,46 +479,46 @@ std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string
     std::string line;
 
     unsigned skiprows = 8;
-    for (unsigned i = 0; i < skiprows; ++i) {
+    for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
 
     while (std::getline(file, line)) {
         eph.prn_id = std::stoi(line.substr(0, 2));
-        eph.a_f0 = std::stod(line.substr(22, 41));
-        eph.a_f1 = std::stod(line.substr(41, 60));
-        eph.a_f2 = std::stod(line.substr(60, 79));
+        eph.a_f0 = std::stod(line.substr(22, 19));
+        eph.a_f1 = std::stod(line.substr(41, 19));
+        eph.a_f2 = std::stod(line.substr(60, 19));
+
+        std::getline(file, line);
+ 
+        eph.C_rs = std::stod(line.substr(22, 19));
+        eph.delta_n = std::stod(line.substr(41, 19));
+        eph.M_0 = std::stod(line.substr(60, 19));
 
         std::getline(file, line);
 
-        eph.C_rs = std::stod(line.substr(22, 41));
-        eph.delta_n = std::stod(line.substr(41, 60));
-        eph.M_0 = std::stod(line.substr(60, 79));
+        eph.C_uc = std::stod(line.substr(3, 19));
+        eph.e = std::stod(line.substr(22, 19));
+        eph.C_us = std::stod(line.substr(41, 19));
+        eph.A_sqrt = std::stod(line.substr(60, 19));
 
         std::getline(file, line);
 
-        eph.C_uc = std::stod(line.substr(3, 22));
-        eph.e = std::stod(line.substr(22, 41));
-        eph.C_us = std::stod(line.substr(41, 60));
-        eph.A_sqrt = std::stod(line.substr(60, 79));
-
-        std::getline(file, line);
-
-        eph.t_oe = static_cast<int>(std::stod(line.substr(3, 22)));
-        eph.C_ic = std::stod(line.substr(22, 41));
-        eph.Omega_0 = std::stod(line.substr(41, 60));
-        eph.C_is = std::stod(line.substr(60, 79));
+        eph.t_oe = static_cast<int>(std::stod(line.substr(3, 19)));
+        eph.C_ic = std::stod(line.substr(22, 19));
+        eph.Omega_0 = std::stod(line.substr(41, 19));
+        eph.C_is = std::stod(line.substr(60, 19));
     
         std::getline(file, line);
 
-        eph.i_0 = std::stod(line.substr(3, 22));
-        eph.C_rc = std::stod(line.substr(22, 41));
-        eph.omega = std::stod(line.substr(41, 60));
-        eph.Omega_dot = std::stod(line.substr(60, 79));
+        eph.i_0 = std::stod(line.substr(3, 19));
+        eph.C_rc = std::stod(line.substr(22, 19));
+        eph.omega = std::stod(line.substr(41, 19));
+        eph.Omega_dot = std::stod(line.substr(60, 19));
 
         std::getline(file, line);
 
-        eph.IDOT = std::stod(line.substr(3, 22));
+        eph.IDOT = std::stod(line.substr(3, 19));
 
         std::getline(file, line);
         std::getline(file, line);
