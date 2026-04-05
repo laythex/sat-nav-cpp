@@ -1,26 +1,23 @@
 #include "SatNav.hpp"
 #include "SatNavRel.hpp"
- 
-SatNav::SatNav(const std::string& date, const GRACE_SATS sat, char version, const GPSHandler& handler) : handler(handler) {
-    std::string gnv_filename = "GNV1B_" + date + "_" + graceSatToChar(sat) + "_0" + version + ".dat";
-    std::string gps_filename = "GPS1B_" + date + "_" + graceSatToChar(sat) + "_0" + version + ".dat";
 
+// Собирать полный путь либо здесь, либо в DataParser
+
+SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler) {
     bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
     if (is_fo) {
-        true_states = DataParser::load_grace_fo_gnv_data(gnv_filename);
-        raw_measurements_groupped = DataParser::load_grace_fo_gps_data(gps_filename);
+        true_states = DataParser::load_grace_fo_gnv_data(date, sat);
+        raw_measurements_groupped = DataParser::load_grace_fo_gps_data(date, sat);
     } else {
-        true_states = DataParser::load_grace_gnv_data(gnv_filename);
-        raw_measurements_groupped = DataParser::load_grace_gps_data(gps_filename);
+        true_states = DataParser::load_grace_gnv_data(date, sat);
+        raw_measurements_groupped = DataParser::load_grace_gps_data(date, sat);
     }
 }
 
 SatNav::SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
-    std::string nav_filename = std::string("SW_OPER_GPS") + swarmSatToChar(sat) + "NAV_1B_" + date + "T000000_" + date + "T235959_0602" + ".sp3";
-    std::string gps_filename = std::string("SW_OPER_GPS") + swarmSatToChar(sat) + "_RO_1B_" + date + "T000000_" + date + "T235959_0602" + ".rnx";
 
-    true_states = DataParser::load_swarm_nav_data(nav_filename);
-    raw_measurements_groupped = DataParser::load_swarm_gps_data(gps_filename);
+    true_states = DataParser::load_swarm_nav_data(date, sat);
+    raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }
 
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
@@ -28,18 +25,20 @@ SatNav::SatNav(const SatNav& sn) : handler(sn.handler),
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
                                    acceleration_measurements(sn.acceleration_measurements) {}
 
-void SatNav::solve(char et, int ti, int tf) {
+void SatNav::solve(char et, unsigned ti, unsigned tf) {
     logger.log("Beginning to solve...");
-    std::cout << 1 << std::endl;
+
     error_type = et;
+
+    unsigned t0 = raw_measurements_groupped[0].time;
 
     for (const auto& raw_mg : raw_measurements_groupped) {
         
         if (ti > 0 || tf > 0) {
-            if (raw_mg.time < ti || raw_mg.time >= tf) continue;
+            if ((raw_mg.time - t0) < ti || (raw_mg.time - t0) >= tf) continue;
         }
 
-        logger.log("Current time = " + std::to_string(raw_mg.time));
+        logger.logv("Current time", raw_mg.time);
 
         std::vector<RefinedMeasurement> ref_ms(32);
         for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
@@ -47,7 +46,7 @@ void SatNav::solve(char et, int ti, int tf) {
 
             if (!check_raw(raw_mg.raw_measurements[prn_index])) continue;
 
-            logger.log("Refining " + std::to_string(prn_id));
+            logger.logv("Refining", prn_id);
 
             RefinedMeasurement ref_m = refine_raw(raw_mg.raw_measurements[prn_index]);
 
@@ -79,12 +78,13 @@ void SatNav::solve(char et, int ti, int tf) {
         logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
 
         if (solution.is_solved) {
-            logger.log("GDOP: " + std::to_string(solution.GDOP));
-            logger.log("Solution norm: " + std::to_string(abs(solution.position)));
-
             auto ts = get_true_state_iterator(raw_mg.time);
             double error = abs(solution.position - ts->position);
-            logger.log("Error: " + std::to_string(error));
+
+            logger.logv("GDOP", solution.GDOP);
+            logger.logv("Solution norm", abs(solution.position));
+            logger.logv("True norm", abs(ts->position));
+            logger.logv("Error", error);
             if (error > 10) logger.log("HIGH ERROR");
         }
 
@@ -110,13 +110,18 @@ bool SatNav::check_raw(const RawMeasurement& raw_m) {
     if (error_type != 'S') {
         double L1_CN0 = 20 * log10(raw_m.L1_SNR) - CN0_constant;
         double L2_CN0 = 20 * log10(raw_m.L2_SNR) - CN0_constant;
-        if (L1_CN0 < CN0_min || L1_CN0 > CN0_max || L2_CN0 < CN0_min || L2_CN0 > CN0_max) {
+        double min_CN0 = std::min(L1_CN0, L2_CN0);
+        double max_CN0 = std::max(L1_CN0, L2_CN0);
+
+        if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
+            logger.log("Bad CN0: " + std::to_string(raw_m.prn_id) + ", " + std::to_string(min_CN0) + ", " + std::to_string(max_CN0));
             return false;
         }
     }
 
     if (error_type != 'F') {
         if (check_fading(raw_m)) {
+            logger.logv("Fading", raw_m.prn_id);
             return false;
         }
     }
@@ -128,7 +133,6 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
     RefinedMeasurement ref_m1 = apply_clock_and_relativistic_errors(raw_m, 1);
     RefinedMeasurement ref_m2 = apply_clock_and_relativistic_errors(raw_m, 2);
 
-    double pseudorange = ref_m1.pseudorange;
     std::vector<double> gps_position = ref_m1.gps_position;
 
     if (error_type != 's') {
@@ -137,6 +141,7 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
         gps_position = rot * gps_position;
     }
 
+    double pseudorange = ref_m1.pseudorange;
     if (error_type != 'I') {
         pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
     }
@@ -151,7 +156,7 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
     (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км
     (3) Релятивизм               - 20 нс - 60 мкм - 6 м
 
-    При расчете ошибки часов учитываем только (1)
+    При расчете ошибки часов НКА учитываем только (1)
     При расчете эфемерид учитываем (1), (2)
     При корректировке псевдодальности учитываем (1), (2), (3) */
     
@@ -201,19 +206,20 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     double c_tau = 0.0;
 
     std::vector<double> U(n);
-    Matrix B(n, 4, 1.0);
+    Matrix B(n, 4);
 
     while (true) {
         for (size_t i = 0; i < n; i++) {
             std::vector<double> DX = X[i] - x;
             double D = abs(DX);
 
+            DX = DX / D;
+            DX.push_back(1.0);
+
             U[i] = PR[i] - D;
-            for (size_t k = 0; k < 3; k++) {
-                B.at(i, k) = DX[k] / D;
-            }
+            B.at(i) = DX;
         }
-        
+
         Matrix B1(4, 4);
         try {
             B1 = (B.transpose() * B).inverse();
@@ -232,7 +238,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
             return solution;
         }
 
-        std::vector<double> dX = B1 * B.transpose() * U * (-1.0);
+        std::vector<double> dX = -B1 * B.transpose() * U;
 
         std::vector<double> dX_x = std::vector<double>(dX.begin(), dX.begin() + 3);
         double dX_c_tau = dX[3];
@@ -264,7 +270,7 @@ bool SatNav::check_fading(const RawMeasurement& raw_m) {
         it_bwd--;
 
         int t = it_bwd->time;
-        if (t0 - t > fadeout_time) break;
+        if (t0 - t > fadeout_threshold) break;
     
         if (!it_bwd->raw_measurements[prn_index].is_present) return true;
     }

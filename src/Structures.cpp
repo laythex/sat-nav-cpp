@@ -1,13 +1,13 @@
 #include "Structures.hpp"
 
 State::State() : time(0), position(3, 0), velocity(3, 0) {}
-State::State(int time, 
+State::State(unsigned time, 
              const std::vector<double>& position,
              const std::vector<double>& velocity) :
              time(time), position(position), velocity(velocity) {}
 
 GPSState::GPSState() : State(), relativistic_error(0) {}
-GPSState::GPSState(int time, 
+GPSState::GPSState(unsigned time, 
                    const std::vector<double>& position,
                    const std::vector<double>& velocity,
                    double relativistic_error) :
@@ -15,7 +15,7 @@ GPSState::GPSState(int time,
                    relativistic_error(relativistic_error) {}
 
 SolutionState::SolutionState() : State(), is_solved(false), failure_type('0'), GDOP(0) {}
-SolutionState::SolutionState(int time, 
+SolutionState::SolutionState(unsigned time, 
                              const std::vector<double>& position,
                              const std::vector<double>& velocity,
                              bool is_solved, char failure_type, double GDOP) :
@@ -29,7 +29,7 @@ RawMeasurement::RawMeasurement() : is_present(false),
                                    L1_SNR(0), L2_SNR(0),
                                    qualflg(0) {}
 RawMeasurement::RawMeasurement(bool is_present,
-                               int time, unsigned prn_id,
+                               unsigned time, unsigned prn_id,
                                double L1_range, double L2_range,
                                double L1_phase, double L2_phase,
                                double L1_SNR, double L2_SNR,
@@ -45,25 +45,25 @@ RefinedMeasurement::RefinedMeasurement() : is_present(false),
                                            time(0), prn_id(0), pseudorange(0), carrier_phase(0),
                                            gps_position(3, 0), gps_velocity(3, 0) {}
 RefinedMeasurement::RefinedMeasurement(bool is_present, 
-                                       int time, unsigned prn_id, double pseudorange, double carrier_phase,
+                                       unsigned time, unsigned prn_id, double pseudorange, double carrier_phase,
                                        const std::vector<double>& gps_position, const std::vector<double>& gps_velocity) : 
                                        is_present(is_present), 
                                        time(time), prn_id(prn_id), pseudorange(pseudorange), carrier_phase(carrier_phase),
                                        gps_position(gps_position), gps_velocity(gps_velocity) {}
 
 RawMeasurementGroupped::RawMeasurementGroupped() : time(-1), raw_measurements(32) {}
-RawMeasurementGroupped::RawMeasurementGroupped(int time,
+RawMeasurementGroupped::RawMeasurementGroupped(unsigned time,
                                                const std::vector<RawMeasurement>& raw_measurements) :
                                                time(time), raw_measurements(raw_measurements) {}
 
 
 RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(-1), refined_measurements(32) {}
-RefinedMeasurementGroupped::RefinedMeasurementGroupped(int time,
+RefinedMeasurementGroupped::RefinedMeasurementGroupped(unsigned time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}
 
 DynamicFilterState::DynamicFilterState() : time(0), x(3), dx(3), pas_pos(3), d_pas_pos(3), mask(32, false), xi_m_1(32), xi_m_2(32), C_rows(32), x_est(3) {}
-DynamicFilterState::DynamicFilterState(int time, 
+DynamicFilterState::DynamicFilterState(unsigned time, 
                                        const std::vector<double>& x, const std::vector<double>& dx,
                                        const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
                                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
@@ -74,7 +74,7 @@ DynamicFilterState::DynamicFilterState(int time,
                                        C_rows(C_rows), x_est(x_est) {}
 
 AccelerationMeasurement::AccelerationMeasurement() : time(0), linear_acceleration(3), angular_acceleration(3) {}
-AccelerationMeasurement::AccelerationMeasurement(int time,
+AccelerationMeasurement::AccelerationMeasurement(unsigned time,
                                                  const std::vector<double>& linear_acceleration,
                                                  const std::vector<double>& angular_acceleration) :
                                                  time(time),

@@ -20,7 +20,7 @@ public:
     SatNavRel(SatNav& passive, SatNav& active);
     SatNavRel(const SatNavRel& sn);
 
-    void solve_relative(char et = '0', int ti = 0, int tf = 0);
+    void solve_relative(char et = '0', unsigned ti = 0, unsigned tf = 0);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;

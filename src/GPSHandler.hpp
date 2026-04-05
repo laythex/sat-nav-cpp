@@ -15,12 +15,13 @@ class GPSHandler {
 public:
     GPSHandler(const std::string& brdc_filename);
     
-    double get_clock_error(unsigned prn_id, double grace_time);
-    GPSState get_state(unsigned prn_id, double grace_time);
+    double get_clock_error(unsigned prn_id, double gps_time);
+    GPSState get_state(unsigned prn_id, double gps_time);
 
 private:
-    double grace_to_sv(double grace_time) const;
     const Ephemeris& select_ephemeris(unsigned prn_id, double t_sv);
+
+    static double gps_to_sv(double gps_time);
 
     double mu_sqrt = 1.99649818432e7;
     double Omega_e_dot = 7.2921151467e-5;

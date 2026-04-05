@@ -322,6 +322,10 @@ double angle_between(const std::vector<double>& a, const std::vector<double>& b)
     return acos(dot(a, b) / abs(a) / abs(b));
 }
 
+std::vector<double> normalize(const std::vector<double>& a) {
+    return a / abs(a);
+}
+
 Matrix zero(size_t r, size_t c) {
     return Matrix(r, c);
 }

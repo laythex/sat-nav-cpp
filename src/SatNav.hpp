@@ -16,38 +16,11 @@ class SatNavRel;
 class SatNav {
 
 public:
-    enum class GRACE_SATS {
-        A, B, C, D
-    };
-
-    enum class SWARM_SATS {
-        A, B, C
-    };
-
-    constexpr char graceSatToChar(GRACE_SATS sat) {
-        switch (sat) {
-            case GRACE_SATS::A:   return 'A';
-            case GRACE_SATS::B:   return 'B';
-            case GRACE_SATS::C:   return 'C';
-            case GRACE_SATS::D:   return 'D';
-            default: return '0';
-        }
-    }
-
-    constexpr char swarmSatToChar(SWARM_SATS sat) {
-        switch (sat) {
-            case SWARM_SATS::A:   return 'A';
-            case SWARM_SATS::B:   return 'B';
-            case SWARM_SATS::C:   return 'C';
-            default: return '0';
-        }
-    }
-
-    SatNav(const std::string& date, const GRACE_SATS sat, char version, const GPSHandler& handler);
+    SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler);
     SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
-    void solve(char et = '0', int ti = 0, int tf = 0);
+    void solve(char et = '0', unsigned ti = 0, unsigned tf = 0);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;
@@ -90,9 +63,10 @@ private:
 
     const double GDOP0 = 5;
     const double mask_angle = 10;
-    const int fadeout_time = 30;
-    const double CN0_min = 20;
-    const double CN0_max = 75;
-    const double hatch_constant = 1.0 / 30.0;
+    
+    const int fadeout_threshold = 10;
+    const double CN0_min_threshold = 25;
+    const double CN0_max_threshold = 60;
 
+    const double hatch_constant = 1;
 };

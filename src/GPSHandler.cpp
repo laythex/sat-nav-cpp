@@ -4,46 +4,15 @@ GPSHandler::GPSHandler(const std::string& brdc_filename) {
     ephemeris = DataParser::load_brdc_data(brdc_filename);
 }
 
-double GPSHandler::grace_to_sv(double grace_time) const {
-    unsigned week_number = (grace_time + 630763200) / 604800;
-    unsigned week_start = week_number * 604800 - 630763200;
-    return grace_time - week_start;
-}
-
-const Ephemeris& GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) {
-    unsigned prn_index = prn_id - 1;
-    size_t n = ephemeris[prn_index].size();
-
-    size_t lo = 0, hi = n, mid;
-    while (lo < hi) {
-        mid = lo + (hi - lo) / 2;
-        if (ephemeris[prn_index][mid].t_oe < t_sv) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
-        }
-    }
-
-    if (lo == 0) return ephemeris[prn_index][0];
-    if (lo == n) return ephemeris[prn_index].back();
-
-    const Ephemeris& left = ephemeris[prn_index][lo - 1];
-    const Ephemeris& right = ephemeris[prn_index][lo];
-    return (t_sv - left.t_oe < right.t_oe - t_sv) ? left : right;
-}
-
-double GPSHandler::get_clock_error(unsigned prn_id, double grace_time) {
-    double t_sv = grace_to_sv(grace_time);
+double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
+    double t_sv = gps_to_sv(gps_time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
-
     double t = t_sv - eph.t_oe;
-    double delta_t_sv = eph.a_f0 + eph.a_f1 * t + eph.a_f2 * t * t;
-
-    return delta_t_sv;
+    return eph.a_f0 + eph.a_f1 * t + eph.a_f2 * t * t;
 }
 
-GPSState GPSHandler::get_state(unsigned prn_id, double grace_time) {
-    double t_sv = grace_to_sv(grace_time); // а если не грейс?
+GPSState GPSHandler::get_state(unsigned prn_id, double gps_time) {
+    double t_sv = gps_to_sv(gps_time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
     double t = t_sv - eph.t_oe;
@@ -99,3 +68,31 @@ GPSState GPSHandler::get_state(unsigned prn_id, double grace_time) {
     return {0, {x, y, z}, {vx, vy, vz}, delta_t_r};
 }
 
+const Ephemeris &GPSHandler::select_ephemeris(unsigned prn_id, double t_sv)
+{
+    unsigned prn_index = prn_id - 1;
+    size_t n = ephemeris[prn_index].size();
+
+    size_t lo = 0, hi = n, mid;
+    while (lo < hi) {
+        mid = lo + (hi - lo) / 2;
+        if (ephemeris[prn_index][mid].t_oe < t_sv) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+
+    if (lo == 0) return ephemeris[prn_index][0];
+    if (lo == n) return ephemeris[prn_index].back();
+
+    const Ephemeris& left = ephemeris[prn_index][lo - 1];
+    const Ephemeris& right = ephemeris[prn_index][lo];
+    return (t_sv - left.t_oe < right.t_oe - t_sv) ? left : right;
+}
+
+double GPSHandler::gps_to_sv(double gps_time) {
+    unsigned week_number = gps_time / 604800;
+    unsigned week_start = week_number * 604800;
+    return gps_time - week_start;
+}

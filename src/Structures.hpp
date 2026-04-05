@@ -12,12 +12,12 @@ struct Ephemeris {
 };
 
 struct State {
-    int time;
+    unsigned time;
     std::vector<double> position;
     std::vector<double> velocity;
 
     State();
-    State(int time, 
+    State(unsigned time, 
           const std::vector<double>& position,
           const std::vector<double>& velocity);
 };
@@ -26,7 +26,7 @@ struct GPSState : State {
     double relativistic_error;
 
     GPSState();
-    GPSState(int time, 
+    GPSState(unsigned time, 
              const std::vector<double>& position,
              const std::vector<double>& velocity,
              double relativistic_error);
@@ -38,7 +38,7 @@ struct SolutionState : State {
     double GDOP;
 
     SolutionState();
-    SolutionState(int time, 
+    SolutionState(unsigned time, 
                   const std::vector<double>& position,
                   const std::vector<double>& velocity,
                   bool is_solved, char failure_type, double GDOP);
@@ -46,7 +46,7 @@ struct SolutionState : State {
 
 struct RawMeasurement {
     bool is_present;
-    int time;
+    unsigned time;
     unsigned prn_id;
     double L1_range, L2_range;
     double L1_phase, L2_phase;
@@ -55,7 +55,7 @@ struct RawMeasurement {
 
     RawMeasurement();
     RawMeasurement(bool is_present, 
-                   int time, unsigned prn_id,
+                   unsigned time, unsigned prn_id,
                    double L1_range, double L2_range,
                    double L1_phase, double L2_phase,
                    double L1_SNR, double L2_SNR,
@@ -64,7 +64,7 @@ struct RawMeasurement {
 
 struct RefinedMeasurement {
     bool is_present;
-    int time;
+    unsigned time;
     unsigned prn_id;
     double pseudorange;
     double carrier_phase;
@@ -73,31 +73,31 @@ struct RefinedMeasurement {
 
     RefinedMeasurement();
     RefinedMeasurement(bool is_present,
-                       int time, unsigned prn_id, double pseudorange, double carrier_phase,
+                       unsigned time, unsigned prn_id, double pseudorange, double carrier_phase,
                        const std::vector<double>& gps_position, const std::vector<double>& gps_velocity);
 };
 
 struct RawMeasurementGroupped {
-    int time;
+    unsigned time;
     std::vector<RawMeasurement> raw_measurements;
 
     RawMeasurementGroupped();
-    RawMeasurementGroupped(int time,
+    RawMeasurementGroupped(unsigned time,
                            const std::vector<RawMeasurement>& raw_measurements);
 };
 
 struct RefinedMeasurementGroupped {
-    int time;
+    unsigned time;
     std::vector<RefinedMeasurement> refined_measurements;
 
     RefinedMeasurementGroupped();
-    RefinedMeasurementGroupped(int time,
+    RefinedMeasurementGroupped(unsigned time,
                                const std::vector<RefinedMeasurement>& refined_measurements);
 };
 
 // Используется в алгоритме динамической фильтрации задачи поиска вектора относительного состояния
 struct DynamicFilterState {
-    int time;
+    unsigned time;
     std::vector<double> x;
     std::vector<double> dx;
     std::vector<double> pas_pos;
@@ -109,7 +109,7 @@ struct DynamicFilterState {
     std::vector<double> x_est;
 
     DynamicFilterState();
-    DynamicFilterState(int time, 
+    DynamicFilterState(unsigned time, 
                        const std::vector<double>& x, const std::vector<double>& dx,
                        const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
                        const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
@@ -117,12 +117,40 @@ struct DynamicFilterState {
 };
 
 struct AccelerationMeasurement {
-    int time;
+    unsigned time;
     std::vector<double> linear_acceleration;
     std::vector<double> angular_acceleration;
 
     AccelerationMeasurement();
-    AccelerationMeasurement(int time,
+    AccelerationMeasurement(unsigned time,
                             const std::vector<double>& linear_acceleration,
                             const std::vector<double>& angular_acceleration);
 };
+
+enum class GRACE_SATS {
+    A, B, C, D
+};
+
+enum class SWARM_SATS {
+    A, B, C
+};
+
+constexpr char satToChar(GRACE_SATS sat) {
+    switch (sat) {
+        case GRACE_SATS::A:   return 'A';
+        case GRACE_SATS::B:   return 'B';
+        case GRACE_SATS::C:   return 'C';
+        case GRACE_SATS::D:   return 'D';
+        default: return '0';
+    }
+}
+
+constexpr char satToChar(SWARM_SATS sat) {
+    switch (sat) {
+        case SWARM_SATS::A:   return 'A';
+        case SWARM_SATS::B:   return 'B';
+        case SWARM_SATS::C:   return 'C';
+        default: return '0';
+    }
+}
+

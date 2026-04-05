@@ -20,7 +20,7 @@ SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active
 SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act),
                                             true_states(sn.true_states) {}
 
-void SatNavRel::solve_relative(char et, int ti, int tf) {
+void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
     logger.log("Starting to solve...");
 
@@ -29,7 +29,7 @@ void SatNavRel::solve_relative(char et, int ti, int tf) {
 
     for (const auto& raw_mg_pas : pas.raw_measurements_groupped) {
 
-        int time = raw_mg_pas.time;
+        unsigned time = raw_mg_pas.time;
         if (ti > 0 || tf > 0) {
             if (time < ti || time >= tf) continue;
         }

@@ -55,8 +55,10 @@ double dot(const std::vector<double>& a, const std::vector<double>& b);
 Matrix tensor(const std::vector<double>& a, const std::vector<double>& b);
 
 double abs(const std::vector<double>& a);
-double abs(const Matrix& matrix); // Заменить на более простую норму
+double abs(const Matrix& matrix);
 double angle_between(const std::vector<double>& a, const std::vector<double>& b);
+
+std::vector<double> normalize(const std::vector<double>& a);
 
 Matrix zero(size_t r, size_t c);
 Matrix identity(size_t r);

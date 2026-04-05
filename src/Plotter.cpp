@@ -11,6 +11,7 @@ void Plotter::plot_errors_norm(double ymin, double ymax) {
 
     file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
+    file << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
         if (!ss.is_solved) continue;
@@ -38,6 +39,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 
     file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
+    file << std::endl;
 
     for (const auto& ref_mg : problem.get_refined_measurements_groupped()) {
         unsigned time = ref_mg.time;
