@@ -3,14 +3,11 @@
 #include "Plotter.hpp"
 #include "PlotterRel.hpp"
 
-#include "Propagator.hpp"
-
-
 int main() {
 
     // Разобраться с дельтами
-    // Починить SNR в 2005
     // PRN_ID в struct?
+    // Raw Measurement хранит C1C, L1C и т.д.
 
     // GPSHandler handler = GPSHandler("brdc3440.05n"); SatNav problem = SatNav("2005-12-10", GRACE_SATS::A, handler);
     // GPSHandler handler = GPSHandler("brdc3440.05n"); SatNav problem = SatNav("2005-12-10", GRACE_SATS::B, handler);
@@ -26,23 +23,35 @@ int main() {
     // plotter.plot_errors_norm(0, 10);
 
 
-    GPSHandler handler = GPSHandler("brdc0600.26n");
-    SatNav problem = SatNav("20260301", SWARM_SATS::A, handler);
+    // GPSHandler handler = GPSHandler("brdc0600.26n");
+    // SatNav problem = SatNav("20260301", SWARM_SATS::A, handler);
     // SatNav problem = SatNav("20260301", SWARM_SATS::B, handler);
     // SatNav problem = SatNav("20260301", SWARM_SATS::C, handler);
 
-    Plotter plotter(problem, 0, 86400);
-    plotter.plot_errors_pr(-10, 10);
-    plotter.plot_errors_norm(0, 10);
+    // Plotter plotter(problem, 0, 86400);
+    // plotter.plot_errors_pr(-10, 10);
+    // plotter.plot_errors_norm(0, 10);
 
-    // GPSHandler handler = GPSHandler("brdc3440.05n");
-    // SatNav problem1 = SatNav("2005-12-10", GRACE_SATS::A, '2', handler);
-    // SatNav problem2 = SatNav("2005-12-10", GRACE_SATS::B, '2', handler);
+    GPSHandler handler = GPSHandler("brdc3440.05n");
+    SatNav problem1 = SatNav("2005-12-10", GRACE_SATS::A, handler);
+    SatNav problem2 = SatNav("2005-12-10", GRACE_SATS::B, handler);
+
+    SatNavRel problem_rel(problem1, problem2);
+    PlotterRel plotter(problem_rel, 0, 0);
+
+    double m = 5;
+    plotter.plot_errors_norm(0, m);
+    plotter.plot_errors_proj(-m, m);
+    plotter.plot_true_norm(0, 0);
+
+    // GPSHandler handler = GPSHandler("brdc0600.26n");
+    // SatNav problem1 = SatNav("20260301", SWARM_SATS::A, handler);
+    // SatNav problem2 = SatNav("20260301", SWARM_SATS::B, handler);
 
     // SatNavRel problem_rel(problem1, problem2);
-    // PlotterRel plotter(problem_rel, 0, 0);
+    // PlotterRel plotter(problem_rel, 0, 1000);
 
-    // double m = 5;
+    // double m = 50;
     // plotter.plot_errors_norm(0, m);
     // plotter.plot_errors_proj(-m, m);
     // plotter.plot_true_norm(0, 0);

@@ -34,8 +34,8 @@ public:
     double norm() const;
 
 private:
-    size_t rows, cols;
-    std::vector<std::vector<double>> data;
+    size_t rows_, cols_;
+    std::vector<std::vector<double>> data_;
 };
 
 std::ostream& operator<<(std::ostream& os, const Matrix& matrix);
@@ -67,6 +67,9 @@ Matrix rotation(double angle, char axis);
 double dist_to_bounds(double x, double lo, double hi);
 
 size_t find_max_abs(const std::vector<double>& a);
+
+template <typename T>
+std::vector<T> mask(const std::vector<T>& a, const std::vector<bool> m);
 
 template <typename T>
 std::vector<T> mask(const std::vector<T>& a, const std::vector<bool> m) {

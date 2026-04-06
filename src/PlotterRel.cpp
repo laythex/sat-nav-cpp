@@ -1,7 +1,7 @@
 #include "PlotterRel.hpp"
 
-PlotterRel::PlotterRel(const SatNavRel& sn, double ti, double tf) : problem(sn), ti(ti), tf(tf) {
-    problem.solve_relative('0', ti, tf);
+PlotterRel::PlotterRel(const SatNavRel& sn, unsigned time_initial, unsigned time_final) : problem(sn), time_initial_(time_initial), time_final_(time_final) {
+    problem.solve_relative('0', time_initial_, time_final_);
 }
 
 void PlotterRel::plot_errors_norm(double ymin, double ymax) {

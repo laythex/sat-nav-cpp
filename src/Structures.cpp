@@ -51,13 +51,13 @@ RefinedMeasurement::RefinedMeasurement(bool is_present,
                                        time(time), prn_id(prn_id), pseudorange(pseudorange), carrier_phase(carrier_phase),
                                        gps_position(gps_position), gps_velocity(gps_velocity) {}
 
-RawMeasurementGroupped::RawMeasurementGroupped() : time(-1), raw_measurements(32) {}
+RawMeasurementGroupped::RawMeasurementGroupped() : time(0), raw_measurements(32) {}
 RawMeasurementGroupped::RawMeasurementGroupped(unsigned time,
                                                const std::vector<RawMeasurement>& raw_measurements) :
                                                time(time), raw_measurements(raw_measurements) {}
 
 
-RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(-1), refined_measurements(32) {}
+RefinedMeasurementGroupped::RefinedMeasurementGroupped() : time(0), refined_measurements(32) {}
 RefinedMeasurementGroupped::RefinedMeasurementGroupped(unsigned time,
                                                        const std::vector<RefinedMeasurement>& refined_measurements) :
                                                        time(time), refined_measurements(refined_measurements) {}

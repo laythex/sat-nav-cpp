@@ -1,8 +1,8 @@
 #pragma once
 
 #include <iostream>
-
 #include <vector>
+#include <cstddef>
 
 #include "LinAlg.hpp"
 #include "Structures.hpp"
@@ -28,9 +28,9 @@ public:
     const std::vector<RefinedMeasurementGroupped>& get_refined_measurements_groupped() const;
     const std::vector<AccelerationMeasurement>& get_acceleration_measurements() const;
 
-    std::vector<State>::const_iterator get_true_state_iterator(int time) const;
-    std::vector<SolutionState>::const_iterator get_solution_state_iterator(int time) const;
-    std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(int time) const;
+    std::vector<State>::const_iterator get_true_state_iterator(unsigned time) const;
+    std::vector<SolutionState>::const_iterator get_solution_state_iterator(unsigned time) const;
+    std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(unsigned time) const;
 
     friend class SatNavRel;
 
@@ -43,7 +43,7 @@ private:
     std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
 
-    GPSHandler handler;
+    GPSHandler handler_;
 
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
@@ -64,7 +64,7 @@ private:
     const double GDOP0 = 5;
     const double mask_angle = 10;
     
-    const int fadeout_threshold = 10;
+    const unsigned fadeout_threshold = 10;
     const double CN0_min_threshold = 25;
     const double CN0_max_threshold = 60;
 

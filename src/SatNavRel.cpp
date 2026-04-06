@@ -27,24 +27,24 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
     error_type = et;
     double err_avg = 0;
 
+    unsigned t0 = pas.raw_measurements_groupped[0].time;
+
     for (const auto& raw_mg_pas : pas.raw_measurements_groupped) {
 
         unsigned time = raw_mg_pas.time;
         if (ti > 0 || tf > 0) {
-            if (time < ti || time >= tf) continue;
+            if ((time - t0) < ti || (time - t0) >= tf) continue;
         }
 
         auto raw_mg_act_it = act.get_raw_measurement_groupped_iterator(time);
         if (raw_mg_act_it == act.raw_measurements_groupped.end()) continue;
         RawMeasurementGroupped raw_mg_act = *raw_mg_act_it;
 
-        if (raw_mg_act.time == -1) continue; // ???
-
         logger.logv("Time", time);
 
         // Обрабатываем сырые измерения с каждого доступного спутника
         std::vector<RefinedMeasurement> ref_ms(32);
-        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+        for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
             unsigned prn_index = prn_id - 1;
 
             RawMeasurement raw_m_pas = raw_mg_pas.raw_measurements[prn_index];
@@ -84,7 +84,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
    
     error_type = '0';
 
-    err_avg /= solution_states.size();
+    err_avg /= static_cast<double>(solution_states.size());
     logger.logv("Average error", err_avg);
     std::cout << "Avg error: " << err_avg << std::endl;
 
@@ -93,6 +93,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
 bool SatNavRel::check_raw(const RawMeasurement& raw_m_pas, const RawMeasurement& raw_m_act) {
     if (!raw_m_pas.is_present || !raw_m_act.is_present) {
+        logger.logv("Not intersecting", raw_m_pas.prn_id);
         return false;
     }
 
@@ -128,16 +129,16 @@ RefinedMeasurement SatNavRel::refine_raw(const RawMeasurement& raw_m_pas, const 
     double pseudorange_delta = raw_m_pas.L1_range - raw_m_act.L1_range;
     double carrier_phase_delta = raw_m_pas.L1_phase - raw_m_act.L1_phase;
 
-    double clock_error = pas.handler.get_clock_error(raw_m_pas.prn_id, raw_m_pas.time); // Лишнее?
+    double clock_error = pas.handler_.get_clock_error(raw_m_pas.prn_id, raw_m_pas.time); // Лишнее?
     double delay = raw_m_pas.L1_range / c + clock_error;
 
-    GPSState gs = pas.handler.get_state(raw_m_pas.prn_id, raw_m_pas.time - delay);
+    GPSState gs = pas.handler_.get_state(raw_m_pas.prn_id, raw_m_pas.time - delay);
 
     return {true, raw_m_pas.time, raw_m_pas.prn_id, pseudorange_delta, carrier_phase_delta, gs.position, gs.velocity};
 }
 
 SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& ref_mg) {
-    int time = ref_mg.time;
+    unsigned time = ref_mg.time;
 
     SolutionState solution;
     solution.time = time;
@@ -233,7 +234,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dfs.x = x_est;
         dfs.dx = dx_est;
         
-        model_steps++;
+        ++model_steps;
         since_model_steps = 0;
 
         dfs_prev = dfs;
@@ -255,10 +256,10 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<std::vector<double>> C_rows_temp;
     std::vector<std::vector<double>> dC_rows_temp;
     logger.log("Working with:", ' ');
-    for (size_t prn_id = 1; prn_id < 33; prn_id++) {
+    for (size_t prn_id = 1; prn_id < 33; ++prn_id) {
         size_t prn_index = prn_id - 1;
         if (dfs.mask[prn_index] && dfs_prev.mask[prn_index]) {
-            n++;
+            ++n;
             xi_m_1_temp.push_back(dfs.xi_m_1[prn_index]);
             d_xi_m_2_temp.push_back(dfs.xi_m_2[prn_index] - dfs_prev.xi_m_2[prn_index]);
             C_rows_temp.push_back(dfs.C_rows[prn_index]);
@@ -273,7 +274,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<double> xi_m(n * 2);
     Matrix C(n, 3);
     Matrix dC(n, 3);
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; ++i) {
         size_t j = i < n - 1 ? i + 1 : 0;
         xi_m[i] = xi_m_1_temp[i] - xi_m_1_temp[j];
         xi_m[i + n] = d_xi_m_2_temp[i] - d_xi_m_2_temp[j];
@@ -291,12 +292,12 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     // Собираем все в векторы кси     
     std::vector<double> xi_est(6);
-    for (size_t i = 0; i < 3; i++) {
+    for (size_t i = 0; i < 3; ++i) {
         xi_est[i] = x_est[i];
         xi_est[i + 3] = dx_est[i];
     }
     std::vector<double> xi_m_diff(n * 2);
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; ++i) {
         xi_m_diff[i] = xi_m[i] - x_m_est[i];
         xi_m_diff[i + n] = xi_m[i + n] - dx_m_est[i];
     }
@@ -317,7 +318,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
             std::vector<double> xi_m_diff_new((n - 1) * 2);
             Matrix C_new(n - 1, 3);
             
-            for (size_t i = 0; i < n - 1; i++) {
+            for (size_t i = 0; i < n - 1; ++i) {
                 if (i < max_at) {
                     xi_m_diff_new[i] = xi_m_diff[i];
                     xi_m_diff_new[i + n] = xi_m_diff[i + n];
@@ -343,7 +344,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     logger.logv("Sat count after diff filtering (n)", n);
 
     // Сглаживание измерений
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; ++i) {
         xi_m_diff[i] = 1 / T_p * xi_m_diff[i] + (1 - 1 / T_p) * xi_m_diff[i + n];
     }
 
@@ -357,7 +358,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         double trace = sqrt(C0_Gram.inverse().trace());
         good_trace = trace < C0_trace_threshold;
         logger.logv("Trace", trace);
-    } catch (std::runtime_error re) {
+    } catch (const std::runtime_error&) {
         logger.log("Trace failed");
     }
 
@@ -366,7 +367,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dfs.x = x_est;
         dfs.dx = dx_est;
         
-        model_steps++;
+        ++model_steps;
         since_model_steps = 0;
 
         dfs_prev = dfs;
@@ -386,7 +387,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dfs.x = x_est;
         dfs.dx = dx_est;
 
-        model_steps++;
+        ++model_steps;
         since_model_steps = 0;
 
         dfs_prev = dfs;
@@ -411,19 +412,19 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<double> d_xi(6);
     try {
         d_xi = W.inverse() * P;
-    } catch (std::runtime_error e) {
-        logger.log("W is non-invertible: " + std::string(e.what()));
+    } catch (const std::runtime_error& runtime_error) {
+        logger.log("W is non-invertible: " + std::string(runtime_error.what()));
     }
     std::vector<double> xi = xi_est + d_xi;
 
     // Сохраняем на следующую итерацию
-    for (size_t i = 0; i < 3; i++) {
+    for (size_t i = 0; i < 3; ++i) {
         dfs.x[i] = xi[i];
         dfs.dx[i] = xi[i + 3];
     }
 
     model_steps = 0;
-    since_model_steps++;
+    ++since_model_steps;
 
     dfs_prev = dfs;
     solution.position = dfs.x;
@@ -484,21 +485,22 @@ const std::vector<SolutionState>& SatNavRel::get_solution_states() const {
     return solution_states;
 }
 
-std::vector<State>::const_iterator SatNavRel::get_true_state_iterator(int time) const {
+std::vector<State>::const_iterator SatNavRel::get_true_state_iterator(unsigned time) const {
     size_t n = true_states.size();
 
-    size_t lo = 0, hi = n - 1;
-    while (lo <= hi) {
-        size_t mid = lo + (hi - lo) / 2;
+    std::ptrdiff_t low = 0;
+    std::ptrdiff_t high = static_cast<std::ptrdiff_t>(n) - 1;
+    while (low <= high) {
+        std::ptrdiff_t mid = low + (high - low) / 2;
 
-        if (true_states[mid].time == time) {
+        if (true_states[static_cast<size_t>(mid)].time == time) {
             return true_states.cbegin() + mid;
         }
 
-        if (true_states[mid].time < time) {
-            lo = mid + 1;
+        if (true_states[static_cast<size_t>(mid)].time < time) {
+            low = mid + 1;
         } else {
-            hi = mid - 1;
+            high = mid - 1;
         }
     }
 

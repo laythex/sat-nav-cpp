@@ -23,7 +23,7 @@ GPSState GPSHandler::get_state(unsigned prn_id, double gps_time) {
     double M = eph.M_0 + n * t;
 
     double E = M;
-    for (unsigned i = 0; i < 3; i++) {
+    for (unsigned i = 0; i < 3; ++i) {
         E += (M - E + eph.e * sin(E)) / (1 - eph.e * cos(E));
     }
 
@@ -92,7 +92,6 @@ const Ephemeris &GPSHandler::select_ephemeris(unsigned prn_id, double t_sv)
 }
 
 double GPSHandler::gps_to_sv(double gps_time) {
-    unsigned week_number = gps_time / 604800;
-    unsigned week_start = week_number * 604800;
-    return gps_time - week_start;
+    unsigned week_number = static_cast<unsigned>(gps_time / 604800);
+    return gps_time - week_number * 604800;
 }

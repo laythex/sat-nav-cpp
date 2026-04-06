@@ -1,51 +1,51 @@
 #include "LinAlg.hpp"
 
-Matrix::Matrix(std::vector<std::vector<double>> data) : data(data) {
-    rows = data.size();
-    cols = data[0].size();
+Matrix::Matrix(std::vector<std::vector<double>> data) : data_(data) {
+    rows_ = data.size();
+    cols_ = data[0].size();
 }
 
-Matrix::Matrix(size_t n, size_t m, double x) : rows(n), cols(m) {
-    data = std::vector<std::vector<double>>(n, std::vector<double>(m, x));
+Matrix::Matrix(size_t n, size_t m, double x) : rows_(n), cols_(m) {
+    data_ = std::vector<std::vector<double>>(n, std::vector<double>(m, x));
 }
 
 size_t Matrix::get_rows() const {
-    return rows;
+    return rows_;
 }
 
 size_t Matrix::get_cols() const {
-    return cols;
+    return cols_;
 }
 
 double Matrix::operator()(size_t i, size_t j) const {
-    return data[i][j];
+    return data_[i][j];
 }
 
 double& Matrix::at(size_t i, size_t j) {
-    return data[i][j];
+    return data_[i][j];
 }
 
 std::vector<double> Matrix::operator()(size_t i) const {
-    return data[i];
+    return data_[i];
 }
 
 std::vector<double>& Matrix::at(size_t i) {
-    return data[i];
+    return data_[i];
 }
 
 void Matrix::insert(const Matrix& m, size_t i, size_t j) {
-    for (size_t p = 0; p < m.rows; p++) {
-        for (size_t q = 0; q < m.cols; q++) {
+    for (size_t p = 0; p < m.rows_; ++p) {
+        for (size_t q = 0; q < m.cols_; ++q) {
             at(i + p, j + q) = m(p, q);
         }
     }
 }
 
 Matrix Matrix::operator+(const Matrix& other) const {
-    Matrix res = Matrix(rows, cols);
+    Matrix res = Matrix(rows_, cols_);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < cols; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < cols_; ++j) {
             res.at(i, j) = operator()(i, j) + other(i, j);
         }
     }
@@ -62,10 +62,10 @@ Matrix Matrix::operator-(const Matrix& other) const {
 }
 
 Matrix Matrix::operator*(double x) const {
-    Matrix res = Matrix(rows, cols);
+    Matrix res = Matrix(rows_, cols_);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < cols; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < cols_; ++j) {
             res.at(i, j) = operator()(i, j) * x;
         }
     }
@@ -74,10 +74,10 @@ Matrix Matrix::operator*(double x) const {
 }
 
 std::vector<double> Matrix::operator*(const std::vector<double>& a) const {
-    std::vector res(rows, 0.0);
+    std::vector res(rows_, 0.0);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < cols; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < cols_; ++j) {
             res[i] += operator()(i, j) * a[j];
         }
     }
@@ -86,11 +86,11 @@ std::vector<double> Matrix::operator*(const std::vector<double>& a) const {
 }
 
 Matrix Matrix::operator*(const Matrix& other) const {
-    Matrix res = Matrix(rows, other.cols);
+    Matrix res = Matrix(rows_, other.cols_);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t k = 0; k < cols; k++) {
-            for (size_t j = 0; j < other.cols; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t k = 0; k < cols_; ++k) {
+            for (size_t j = 0; j < other.cols_; ++j) {
                 res.at(i, j) += operator()(i, k) * other(k, j);
             }
         }
@@ -104,10 +104,10 @@ Matrix Matrix::operator/(double x) const {
 }
 
 Matrix Matrix::transpose() const {
-    Matrix res = Matrix(cols, rows);
+    Matrix res = Matrix(cols_, rows_);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < cols; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < cols_; ++j) {
             res.at(j, i) = operator()(i, j);
         }
     }
@@ -117,30 +117,29 @@ Matrix Matrix::transpose() const {
 
 Matrix Matrix::inverse() const {
     double singular_tol = 1e-13;
-    double cond_tol = 1e8;
 
-    Matrix aug(rows, rows * 2);
+    Matrix aug(rows_, rows_ * 2);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < rows; j++) {
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < rows_; ++j) {
             aug.at(i, j) = operator()(i, j);
         }
-        aug.at(i, rows + i) = 1.0;
+        aug.at(i, rows_ + i) = 1.0;
     }
 
     double max_pivot = 0.0;
     double min_pivot = std::numeric_limits<double>::infinity();
 
-    for (size_t p = 0; p < rows; p++) {
+    for (size_t p = 0; p < rows_; ++p) {
 
         size_t max_row = p;
-        for (size_t i = p + 1; i < rows; i++) {
+        for (size_t i = p + 1; i < rows_; ++i) {
             if (std::abs(aug(i, p)) > std::abs(aug(max_row, p))) {
                 max_row = i;
             }
         }
 
-        for (size_t i = 0; i < rows * 2; i++) {
+        for (size_t i = 0; i < rows_ * 2; ++i) {
             double tmp = aug(p, i);
             aug.at(p, i) = aug(max_row, i);
             aug.at(max_row, i) = tmp;
@@ -153,9 +152,9 @@ Matrix Matrix::inverse() const {
             throw std::runtime_error("Singular matrix");
         }
 
-        for (size_t i = p + 1; i < rows; i++) {
+        for (size_t i = p + 1; i < rows_; ++i) {
             double factor = aug(i, p) / aug(p, p);
-            for (size_t j = p; j < rows * 2; j++) {
+            for (size_t j = p; j < rows_ * 2; ++j) {
                 aug.at(i, j) -= factor * aug(p, j);
             }
         }
@@ -166,27 +165,27 @@ Matrix Matrix::inverse() const {
         throw std::runtime_error("Ill-conditioned matrix");
     }
 
-    for (size_t p1 = rows; p1 > 0; p1--) {
+    for (size_t p1 = rows_; p1 > 0; p1--) {
         size_t p = p1 - 1;
 
         double pivot = aug(p, p);
-        for (size_t j = 0; j < rows * 2; j++) {
+        for (size_t j = 0; j < rows_ * 2; ++j) {
             aug.at(p, j) /= pivot;
         }
 
-        for (size_t i = 0; i < p; i++) {
+        for (size_t i = 0; i < p; ++i) {
             double factor = aug(i, p);
-            for (size_t j = 0; j < rows * 2; j++) {
+            for (size_t j = 0; j < rows_ * 2; ++j) {
                 aug.at(i, j) -= factor * aug(p, j);
             }
         }
     }
 
-    Matrix res(rows, rows);
+    Matrix res(rows_, rows_);
 
-    for (size_t i = 0; i < rows; i++) {
-        for (size_t j = 0; j < rows; j++) {
-            res.at(i, j) = aug(i, rows + j);
+    for (size_t i = 0; i < rows_; ++i) {
+        for (size_t j = 0; j < rows_; ++j) {
+            res.at(i, j) = aug(i, rows_ + j);
         }
     }
 
@@ -196,7 +195,7 @@ Matrix Matrix::inverse() const {
 double Matrix::trace() const {
     double res = 0;
 
-    for (size_t i = 0; i < rows; i++) {
+    for (size_t i = 0; i < rows_; ++i) {
         res += operator()(i, i);
     }
 
@@ -206,9 +205,9 @@ double Matrix::trace() const {
 double Matrix::norm() const {
     double res = 0;
 
-    for (size_t i = 0; i < rows; i++) {
+    for (size_t i = 0; i < rows_; ++i) {
         double row_abs_sum = 0;
-        for (size_t j = 0; j < cols; j++) {
+        for (size_t j = 0; j < cols_; ++j) {
             row_abs_sum += std::abs(operator()(i, j));
         }
         if (row_abs_sum > res) {
@@ -220,8 +219,8 @@ double Matrix::norm() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
-    for (size_t i = 0; i < matrix.get_rows(); i++) {
-        for (size_t j = 0; j < matrix.get_cols(); j++) {
+    for (size_t i = 0; i < matrix.get_rows(); ++i) {
+        for (size_t j = 0; j < matrix.get_cols(); ++j) {
             double x = std::abs(matrix(i, j)) > 1e-13 ? matrix(i, j) : 0;
             os << x << " ";
         }
@@ -232,7 +231,7 @@ std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
 }
 
 std::ostream& operator<<(std::ostream& os, const std::vector<double>& a) {
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         os << a[i] << " ";
     }
 
@@ -240,7 +239,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<double>& a) {
 }
 
 std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a) {
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         double x = a[i];
         os << x << " ";
     }
@@ -251,7 +250,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a) {
 std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) {
     std::vector<double> res(a.size());
 
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         res[i] = a[i] + b[i];
     }
 
@@ -265,7 +264,7 @@ std::vector<double> operator-(const std::vector<double>& a, const std::vector<do
 std::vector<double> operator*(const std::vector<double>& a, double x) {
     std::vector<double> res(a.size());
 
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         res[i] = a[i] * x;
     }
 
@@ -291,7 +290,7 @@ Matrix operator*(double x, const Matrix& matrix) {
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
     double res = 0;
 
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         res += a[i] * b[i];
     }
 
@@ -301,8 +300,8 @@ double dot(const std::vector<double>& a, const std::vector<double>& b) {
 Matrix tensor(const std::vector<double>& a, const std::vector<double>& b) {
     Matrix res(a.size(), b.size());
 
-    for (size_t i = 0; i < a.size(); i++) {
-        for (size_t j = 0; j < b.size(); j++) {
+    for (size_t i = 0; i < a.size(); ++i) {
+        for (size_t j = 0; j < b.size(); ++j) {
             res.at(i, j) = a[i] * b[j];
         }
     }
@@ -333,7 +332,7 @@ Matrix zero(size_t r, size_t c) {
 Matrix identity(size_t r) {
     Matrix res(r, r);
 
-    for (size_t i = 0; i < r; i++) {
+    for (size_t i = 0; i < r; ++i) {
         res.at(i, i) = 1.0;
     }
 
@@ -378,7 +377,7 @@ size_t find_max_abs(const std::vector<double>& a) {
     size_t max_at = 0;
     double max_el = 0;
 
-    for (size_t i = 0; i < a.size(); i++) {
+    for (size_t i = 0; i < a.size(); ++i) {
         double el = std::abs(a[i]);
         if (el > max_el) {
             max_el = el;

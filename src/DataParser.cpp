@@ -1,17 +1,5 @@
 #include "DataParser.hpp"
 
-template <typename T>
-T bytes_to_T_endian(const char* bytes, T t) {
-    size_t n = sizeof(T);
-    char res_bytes[n];
-
-    for (size_t i = 0; i < n; i++) {
-        res_bytes[n - i - 1] = bytes[i];
-    }
-
-    return *reinterpret_cast<T*>(res_bytes);
-}
-
 std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& date, const GRACE_SATS& sat) {
     std::vector<State> true_states;
 
@@ -31,7 +19,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& date, c
         std::stringstream stream(line);
 
         std::getline(stream, line, ' ');
-        unsigned grace_time = std::stoi(line);
+        unsigned grace_time = static_cast<unsigned>(std::stoul(line));
         unsigned gps_time = grace_to_gps_time(grace_time);
 
         std::getline(stream, line, ' ');
@@ -87,7 +75,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
 
         std::getline(stream, line, ' ');
 
-        unsigned grace_time = std::stoi(line);
+        unsigned grace_time = static_cast<unsigned>(std::stoul(line));
         unsigned gps_time = grace_to_gps_time(grace_time);
     
         std::getline(stream, line, ' ');
@@ -97,7 +85,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        unsigned prn_id = std::stoi(line);
+        unsigned prn_id = static_cast<unsigned>(std::stoul(line));
 
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -107,7 +95,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
 
-        unsigned qualflg = std::stoi(line);
+        unsigned qualflg = static_cast<unsigned>(std::stoul(line));
 
         std::getline(stream, line, ' ');
         std::getline(stream, line, ' ');
@@ -190,7 +178,7 @@ std::vector<State> DataParser::load_grace_gnv_data(const std::string& date, cons
     char record[103];
     while (!file.eof()) {
         file.read(record, 4);
-        unsigned grace_time = bytes_to_T_endian(record, int());
+        unsigned grace_time = bytes_to_T_endian(record, unsigned());
         unsigned gps_time = grace_to_gps_time(grace_time);
 
         if (static_cast<int>(record[0]) == 62) break;
@@ -244,7 +232,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
     char record[74];
     while (!file.eof()) {
         file.read(record, 4); 
-        unsigned grace_time = bytes_to_T_endian(record, int());
+        unsigned grace_time = bytes_to_T_endian(record, unsigned());
         unsigned gps_time = grace_to_gps_time(grace_time);
         
         if (static_cast<int>(record[0]) == 0) break;
@@ -276,9 +264,9 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
         file.read(record, 2);
 
         file.read(record, 2);
-        double L1_SNR = bytes_to_T_endian(record, double());
+        double L1_SNR = bytes_to_T_endian(record, (unsigned short)(0));
         file.read(record, 2);
-        double L2_SNR = bytes_to_T_endian(record, double());
+        double L2_SNR = bytes_to_T_endian(record, (unsigned short)(0));
 
         file.read(record, 6);
 
@@ -326,7 +314,7 @@ std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::
     char record[78];
     while (!file.eof()) {
         file.read(record, 4);
-        unsigned grace_time = bytes_to_T_endian(record, int());
+        unsigned grace_time = bytes_to_T_endian(record, unsigned());
         unsigned gps_time = grace_to_gps_time(grace_time);
 
         if (static_cast<int>(record[0]) == 0) break;
@@ -348,11 +336,8 @@ std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::
         double ang_accl_z = bytes_to_T_endian(record, double());
 
         file.read(record, 8);
-        double acl_x_res = bytes_to_T_endian(record, double());
         file.read(record, 8);
-        double acl_y_res = bytes_to_T_endian(record, double());
         file.read(record, 8);
-        double acl_z_res = bytes_to_T_endian(record, double());
 
         file.read(record, 1);
 
@@ -386,12 +371,12 @@ std::vector<State> DataParser::load_swarm_nav_data(const std::string& date, cons
 
         if (line[0] == 'E') break;
 
-        unsigned year = std::stoi(line.substr(3, 4));
-        unsigned month = std::stoi(line.substr(8, 2));
-        unsigned day = std::stoi(line.substr(11, 2));
-        unsigned hours = std::stoi(line.substr(14, 2));
-        unsigned minutes = std::stoi(line.substr(17, 2));
-        unsigned seconds = std::stoi(line.substr(20, 2));
+        unsigned year = static_cast<unsigned>(std::stoul(line.substr(3, 4)));
+        unsigned month = static_cast<unsigned>(std::stoul(line.substr(8, 2)));
+        unsigned day = static_cast<unsigned>(std::stoul(line.substr(11, 2)));
+        unsigned hours = static_cast<unsigned>(std::stoul(line.substr(14, 2)));
+        unsigned minutes = static_cast<unsigned>(std::stoul(line.substr(17, 2)));
+        unsigned seconds = static_cast<unsigned>(std::stoul(line.substr(20, 2)));
 
         unsigned gps_time = date_to_gps_time(year, month, day, hours, minutes, seconds);
 
@@ -435,24 +420,25 @@ std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const std::s
 
     while (std::getline(file, line)) {
 
-        unsigned year = std::stoi(line.substr(2, 4));
-        unsigned month = std::stoi(line.substr(7, 2));
-        unsigned day = std::stoi(line.substr(10, 2));
-        unsigned hours = std::stoi(line.substr(13, 2));
-        unsigned minutes = std::stoi(line.substr(16, 2));
-        unsigned seconds = std::stoi(line.substr(19, 2));
+        unsigned year = static_cast<unsigned>(std::stoul(line.substr(2, 4)));
+        unsigned month = static_cast<unsigned>(std::stoul(line.substr(7, 2)));
+        unsigned day = static_cast<unsigned>(std::stoul(line.substr(10, 2)));
+        unsigned hours = static_cast<unsigned>(std::stoul(line.substr(13, 2)));
+        unsigned minutes = static_cast<unsigned>(std::stoul(line.substr(16, 2)));
+        unsigned seconds = static_cast<unsigned>(std::stoul(line.substr(19, 2)));
 
         unsigned gps_time = date_to_gps_time(year, month, day, hours, minutes, seconds);
 
-        int sat_count = std::stoi(line.substr(33, 4));
+        size_t sat_count = std::stoul(line.substr(33, 4));
 
-        for (size_t i = 0; i < sat_count; i++) {
+        for (size_t i = 0; i < sat_count; ++i) {
             std::getline(file, line);
 
-            unsigned prn_id = std::stoi(line.substr(1, 2));
-            double C1C = std::stod(line.substr(3, 14));     // L1 C/A PR
+            unsigned prn_id = static_cast<unsigned>(std::stoul(line.substr(1, 2)));
+
+            // double C1C = std::stod(line.substr(3, 14));     // L1 C/A PR
             double L1C = std::stod(line.substr(19, 14));    // L1 C/A CP
-            double S1C = std::stod(line.substr(35, 14));    // L1 C/A SNR
+            // double S1C = std::stod(line.substr(35, 14));    // L1 C/A SNR
             double C1W = std::stod(line.substr(51, 14));    // L1 Z   PR
             double S1W = std::stod(line.substr(67, 14));    // L2 Z   SNR
             double C2W = std::stod(line.substr(83, 14));    // L2 Z   PR
@@ -498,7 +484,7 @@ std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string
     }
 
     while (std::getline(file, line)) {
-        eph.prn_id = std::stoi(line.substr(0, 2));
+        eph.prn_id = static_cast<unsigned>(std::stoul(line.substr(0, 2)));
         eph.a_f0 = std::stod(line.substr(22, 19));
         eph.a_f1 = std::stod(line.substr(41, 19));
         eph.a_f2 = std::stod(line.substr(60, 19));
@@ -553,7 +539,7 @@ unsigned DataParser::grace_to_gps_time(unsigned grace_time) {
 unsigned DataParser::date_to_gps_time(unsigned year, unsigned month, unsigned day, unsigned hours, unsigned minutes, unsigned seconds) {
 
     unsigned day_of_the_year = 0;
-    for (size_t i = 0; i < month - 1; i++) {
+    for (size_t i = 0; i < month - 1; ++i) {
         day_of_the_year += month_day_count[i];
     }
     day_of_the_year += day;
@@ -564,4 +550,3 @@ unsigned DataParser::date_to_gps_time(unsigned year, unsigned month, unsigned da
            (day_of_the_year + 6) * day_seconds_count + 
            seconds_since_midnight;
 }
-

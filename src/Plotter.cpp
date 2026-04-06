@@ -1,7 +1,7 @@
 #include "Plotter.hpp"
 
-Plotter::Plotter(const SatNav& sn, double ti, double tf) : problem(sn), problem_copy(sn), ti(ti), tf(tf) {
-    problem.solve('0', ti, tf);
+Plotter::Plotter(const SatNav& sn, unsigned time_initial, unsigned time_final) : problem(sn), problem_copy(sn), time_initial_(time_initial), time_final_(time_final) {
+    problem.solve('0', time_initial_, time_final_);
 }
 
 void Plotter::plot_errors_norm(double ymin, double ymax) {
@@ -50,7 +50,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 
         file << time << sep;
 
-        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+        for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
             unsigned prn_index = prn_id - 1;
             RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
 
@@ -94,7 +94,7 @@ std::string filename = "gdop";
 }
 
 void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
-    problem_copy.solve('I', ti, tf);
+    problem_copy.solve('I', time_initial_, time_final_);
 
     std::string filename = "errors-" + error_names[error_type];
     std::ofstream file;
@@ -125,7 +125,7 @@ void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
 }
 
 void Plotter::plot_map_norm(const std::string& mode, double threshold) {
-    problem_copy.solve('I', ti, tf);
+    problem_copy.solve('I', time_initial_, time_final_);
 
     std::string filename = "map-norm";
     std::ofstream file;
@@ -155,7 +155,7 @@ void Plotter::plot_map_norm(const std::string& mode, double threshold) {
 }
 
 void Plotter::plot_map_iono(const std::string& mode, double threshold) {
-    problem_copy.solve('I', ti, tf);
+    problem_copy.solve('I', time_initial_, time_final_);
 
     std::string filename = "map-iono";
     std::ofstream file;
@@ -195,12 +195,10 @@ void Plotter::plot_acc_lin_proj(double ymin, double ymax) {
     file << ymin << '\t' << ymax << std::endl;
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
 
-    for (const auto& lin_acc_m : problem.get_acceleration_measurements()) {
-        int time = lin_acc_m.time;
-
-        file << time << sep << lin_acc_m.linear_acceleration[0] << sep << 
-                               lin_acc_m.linear_acceleration[1] << sep << 
-                               lin_acc_m.linear_acceleration[2] << std::endl;
+    for (const auto& acc_m : problem.get_acceleration_measurements()) {
+        file << acc_m.time << sep << acc_m.linear_acceleration[0] << sep << 
+                                     acc_m.linear_acceleration[1] << sep << 
+                                     acc_m.linear_acceleration[2] << std::endl;
     }
 
     file.close();
@@ -217,12 +215,10 @@ void Plotter::plot_acc_ang_proj(double ymin, double ymax) {
     file << ymin << '\t' << ymax << std::endl;
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
 
-    for (const auto& lin_acc_m : problem.get_acceleration_measurements()) {
-        int time = lin_acc_m.time;
-
-        file << time << sep << lin_acc_m.angular_acceleration[0] << sep << 
-                               lin_acc_m.angular_acceleration[1] << sep << 
-                               lin_acc_m.angular_acceleration[2] << std::endl;
+    for (const auto& acc_m : problem.get_acceleration_measurements()) {
+        file << acc_m.time << sep << acc_m.angular_acceleration[0] << sep << 
+                                     acc_m.angular_acceleration[1] << sep << 
+                                     acc_m.angular_acceleration[2] << std::endl;
     }
 
     file.close();

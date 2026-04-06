@@ -11,7 +11,7 @@
 
 class Plotter {
 public:
-    Plotter(const SatNav& sn, double ti = 0, double tf = 0);
+    Plotter(const SatNav& sn, unsigned time_initial = 0, unsigned time_final = 0);
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_pr(double ymin = 0, double ymax = 0);
     void plot_gdop(double ymin = 0, double ymax = 0);
@@ -34,7 +34,7 @@ private:
 
     char sep = ',';
     
-    unsigned ti, tf;
+    unsigned time_initial_, time_final_;
 
     std::map<char, std::string> error_names = {
         {'F', "fading"},

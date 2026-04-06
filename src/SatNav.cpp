@@ -3,7 +3,7 @@
 
 // Собирать полный путь либо здесь, либо в DataParser
 
-SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler) {
+SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler) : handler_(handler) {
     bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
     if (is_fo) {
         true_states = DataParser::load_grace_fo_gnv_data(date, sat);
@@ -14,13 +14,13 @@ SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& 
     }
 }
 
-SatNav::SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
+SatNav::SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler) : handler_(handler) {
 
     true_states = DataParser::load_swarm_nav_data(date, sat);
     raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }
 
-SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
+SatNav::SatNav(const SatNav& sn) : handler_(sn.handler_), 
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
                                    acceleration_measurements(sn.acceleration_measurements) {}
@@ -41,7 +41,7 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {
         logger.logv("Current time", raw_mg.time);
 
         std::vector<RefinedMeasurement> ref_ms(32);
-        for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+        for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
             unsigned prn_index = prn_id - 1;
 
             if (!check_raw(raw_mg.raw_measurements[prn_index])) continue;
@@ -172,10 +172,10 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
     double propagation_delay = pseudorange / c;
     delay += propagation_delay;
 
-    double clock_error = handler.get_clock_error(raw_m.prn_id, raw_m.time - delay);
+    double clock_error = handler_.get_clock_error(raw_m.prn_id, raw_m.time - delay);
     delay += clock_error;
 
-    GPSState gs = handler.get_state(raw_m.prn_id, raw_m.time - delay);
+    GPSState gs = handler_.get_state(raw_m.prn_id, raw_m.time - delay);
 
     if (error_type != 'R') {
         double relativistic_error = gs.relativistic_error;
@@ -197,7 +197,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
         if (ref_m.is_present) {
             PR.push_back(ref_m.pseudorange);
             X.push_back(ref_m.gps_position);
-            n++;
+            ++n;
         }
     }
 
@@ -209,7 +209,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
     Matrix B(n, 4);
 
     while (true) {
-        for (size_t i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; ++i) {
             std::vector<double> DX = X[i] - x;
             double D = abs(DX);
 
@@ -223,7 +223,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
         Matrix B1(4, 4);
         try {
             B1 = (B.transpose() * B).inverse();
-        } catch (std::runtime_error e) {
+        } catch (const std::runtime_error&) {
             solution.is_solved = false;
             solution.failure_type = 'g';
             return solution;
@@ -259,7 +259,7 @@ SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_m
 }
 
 bool SatNav::check_fading(const RawMeasurement& raw_m) {
-    int t0 = raw_m.time;
+    unsigned t0 = raw_m.time;
     unsigned prn_index = raw_m.prn_id - 1;
     
     auto raw_mg_it = get_raw_measurement_groupped_iterator(t0);
@@ -269,7 +269,7 @@ bool SatNav::check_fading(const RawMeasurement& raw_m) {
         if (it_bwd == raw_measurements_groupped.begin()) return true;
         it_bwd--;
 
-        int t = it_bwd->time;
+        unsigned t = it_bwd->time;
         if (t0 - t > fadeout_threshold) break;
     
         if (!it_bwd->raw_measurements[prn_index].is_present) return true;
@@ -281,7 +281,7 @@ bool SatNav::check_fading(const RawMeasurement& raw_m) {
 std::vector<unsigned> SatNav::check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg) {
     std::vector<unsigned> low;
 
-    for (unsigned prn_id = 1; prn_id <= 32; prn_id++) {
+    for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
         unsigned prn_index = prn_id - 1;
         RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
 
@@ -340,61 +340,66 @@ const std::vector<AccelerationMeasurement>& SatNav::get_acceleration_measurement
 }
 
 // сделать темплейт бинарного поиска
-std::vector<State>::const_iterator SatNav::get_true_state_iterator(int time) const {
+std::vector<State>::const_iterator SatNav::get_true_state_iterator(unsigned time) const {
     size_t n = true_states.size();
 
-    size_t lo = 0, hi = n - 1;
-    while (lo <= hi) {
-        size_t mid = lo + (hi - lo) / 2;
+    std::ptrdiff_t low = 0;
+    std::ptrdiff_t high = static_cast<std::ptrdiff_t>(n) - 1;
+    while (low <= high) {
+        std::ptrdiff_t mid = low + (high - low) / 2;
 
-        if (true_states[mid].time == time) {
+        if (true_states[static_cast<size_t>(mid)].time == time) {
             return true_states.cbegin() + mid;
         }
 
-        if (true_states[mid].time < time) {
-            lo = mid + 1;
+        if (true_states[static_cast<size_t>(mid)].time < time) {
+            low = mid + 1;
         } else {
-            hi = mid - 1;
+            high = mid - 1;
         }
     }
 
     return true_states.cend();
 }
 
-std::vector<SolutionState>::const_iterator SatNav::get_solution_state_iterator(int time) const {
+std::vector<SolutionState>::const_iterator SatNav::get_solution_state_iterator(unsigned time) const {
     size_t n = solution_states.size();
 
-    size_t lo = 0, hi = n - 1;
-    while (lo <= hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        if (solution_states[mid].time == time) {
-            return solution_states.begin() + mid;
+    std::ptrdiff_t low = 0;
+    std::ptrdiff_t high = static_cast<std::ptrdiff_t>(n) - 1;
+    while (low <= high) {
+        std::ptrdiff_t mid = low + (high - low) / 2;
+
+        if (solution_states[static_cast<size_t>(mid)].time == time) {
+            return solution_states.cbegin() + mid;
         }
 
-        if (solution_states[mid].time < time) {
-            lo = mid + 1;
+        if (solution_states[static_cast<size_t>(mid)].time < time) {
+            low = mid + 1;
         } else {
-            hi = mid - 1;
+            high = mid - 1;
         }
     }
 
-    return solution_states.end();
+    return solution_states.cend();
 }
 
-std::vector<RawMeasurementGroupped>::const_iterator SatNav::get_raw_measurement_groupped_iterator(int time) const {
+std::vector<RawMeasurementGroupped>::const_iterator SatNav::get_raw_measurement_groupped_iterator(unsigned time) const {
     size_t n = raw_measurements_groupped.size();
 
-    size_t lo = 0, hi = n - 1;
-    while (lo <= hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        if (raw_measurements_groupped[mid].time == time) {
+    std::ptrdiff_t low = 0;
+    std::ptrdiff_t high = static_cast<std::ptrdiff_t>(n) - 1;
+    while (low <= high) {
+        std::ptrdiff_t mid = low + (high - low) / 2;
+
+        if (raw_measurements_groupped[static_cast<size_t>(mid)].time == time) {
             return raw_measurements_groupped.cbegin() + mid;
         }
 
-        if (raw_measurements_groupped[mid].time < time) {
-            lo = mid + 1;
+        if (raw_measurements_groupped[static_cast<size_t>(mid)].time < time) {
+            low = mid + 1;
         } else {
-            hi = mid - 1;
+            high = mid - 1;
         }
     }
 

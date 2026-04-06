@@ -1,8 +1,8 @@
 #pragma once
 
 #include <iostream>
-
 #include <vector>
+#include <cstddef>
 
 #include "LinAlg.hpp"
 #include "Structures.hpp"
@@ -10,7 +10,6 @@
 #include "DataParser.hpp"
 #include "Logger.hpp"
 #include "SatNav.hpp"
-#include "Propagator.hpp"
 
 class SatNav;
 
@@ -25,7 +24,7 @@ public:
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;
 
-    std::vector<State>::const_iterator get_true_state_iterator(int time) const;
+    std::vector<State>::const_iterator get_true_state_iterator(unsigned time) const;
 
     // должно быть приватным?
     SatNav& pas;
