@@ -1,26 +1,33 @@
 #include "SatNavRel.hpp"
 #include "SatNav.hpp"
 
-SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active) {
-    // Решаем каждую из задач отдельно
-    pas.solve();
-    act.solve();
+SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active) {}
 
-    // Заполняем вектор истинных решений
+SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act), true_states(sn.true_states) {}
+                                        
+void SatNavRel::solve_separately(char et, unsigned ti, unsigned tf) {
+    pas.solve(et, ti, tf);
+    act.solve(et, ti, tf);
+
+    unsigned t0 = pas.get_true_states()[0].time;
     for (const State& ts_pas : pas.get_true_states()) {
 
-        auto ts_act_it = act.get_true_state_iterator(ts_pas.time);
+        unsigned time = ts_pas.time;
+        if (ti > 0 || tf > 0) {
+            if ((time - t0) < ti || (time - t0) >= tf) continue;
+        }
+
+        auto ts_act_it = act.get_true_state_iterator(time);
         if (ts_act_it == act.get_true_states().end()) continue;
         State ts_act = *ts_act_it;
 
-        true_states.push_back({ts_pas.time, ts_act.position - ts_pas.position, ts_act.velocity - ts_pas.velocity});
+        true_states.push_back({time, ts_act.position - ts_pas.position, ts_act.velocity - ts_pas.velocity});
     }
 }
 
-SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act),
-                                            true_states(sn.true_states) {}
-
 void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
+
+    solve_separately(et, ti, tf);
 
     logger.log("Starting to solve...");
 
@@ -28,7 +35,6 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
     double err_avg = 0;
 
     unsigned t0 = pas.raw_measurements_groupped[0].time;
-
     for (const auto& raw_mg_pas : pas.raw_measurements_groupped) {
 
         unsigned time = raw_mg_pas.time;
@@ -41,6 +47,8 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         RawMeasurementGroupped raw_mg_act = *raw_mg_act_it;
 
         logger.logv("Time", time);
+        
+        std::cout << "Time: " << time << std::endl;
 
         // Обрабатываем сырые измерения с каждого доступного спутника
         std::vector<RefinedMeasurement> ref_ms(32);
@@ -49,7 +57,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
             RawMeasurement raw_m_pas = raw_mg_pas.raw_measurements[prn_index];
             RawMeasurement raw_m_act = raw_mg_act.raw_measurements[prn_index];
-
+        
             // Проверяем, что с измерениями все ок
             if (!check_raw(raw_m_pas, raw_m_act)) continue;
 
@@ -93,7 +101,6 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
 bool SatNavRel::check_raw(const RawMeasurement& raw_m_pas, const RawMeasurement& raw_m_act) {
     if (!raw_m_pas.is_present || !raw_m_act.is_present) {
-        logger.logv("Not intersecting", raw_m_pas.prn_id);
         return false;
     }
 
@@ -173,6 +180,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     } else {
         act_pos = pas_pos;
     }
+
+    // продолжить тут
 
     good_coarse_data = true;
     pas_pos = pas.get_true_state_iterator(time)->position;
