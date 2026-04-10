@@ -67,7 +67,7 @@ private:
     const unsigned model_steps_threshold = 10;
     const unsigned model_steps_relaxation = 3;
 
-    const double T_x = 10000 * 0;
+    const double T_x = 10000;
     const double T_v = T_x;
     const double T_p = 2;
     Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},

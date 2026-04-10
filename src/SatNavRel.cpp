@@ -47,8 +47,6 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         RawMeasurementGroupped raw_mg_act = *raw_mg_act_it;
 
         logger.logv("Time", time);
-        
-        std::cout << "Time: " << time << std::endl;
 
         // Обрабатываем сырые измерения с каждого доступного спутника
         std::vector<RefinedMeasurement> ref_ms(32);
@@ -57,7 +55,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
             RawMeasurement raw_m_pas = raw_mg_pas.raw_measurements[prn_index];
             RawMeasurement raw_m_act = raw_mg_act.raw_measurements[prn_index];
-        
+
             // Проверяем, что с измерениями все ок
             if (!check_raw(raw_m_pas, raw_m_act)) continue;
 
@@ -76,7 +74,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         SolutionState solution;
         solution = calculate_solution(ref_mg);
         solution_states.push_back(solution);
-
+ 
         logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
         auto ts = get_true_state_iterator(raw_mg_pas.time);
         double error = abs(solution.position - ts->position);
@@ -153,45 +151,17 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     DynamicFilterState dfs;
     dfs.time = time;
 
-    // Находим решения пассивного и активного КА
-    auto ss_pas_it = pas.get_solution_state_iterator(time);
-    auto ss_act_it = act.get_solution_state_iterator(time);
-
-    bool has_passive = ss_pas_it != pas.get_solution_states().end() && ss_pas_it->is_solved;
-    bool has_active = ss_act_it != act.get_solution_states().end() && ss_act_it->is_solved;
-    bool good_coarse_data = has_passive && has_active;
-
-    if (df_state < 2 && !good_coarse_data) {
-        df_state = 0;
-
-        solution.is_solved = false;
-        solution.failure_type = '-';
-        return solution;
-    }
-
-    std::vector<double> pas_pos, act_pos;
-    if (has_passive) {
-        pas_pos = ss_pas_it->position;
-    } else {
-        pas_pos =  dfs_prev.pas_pos + estimate_dpp();
-    }
-    if (has_active) {
-        act_pos = ss_act_it->position;
-    } else {
-        act_pos = pas_pos;
-    }
-
-    // продолжить тут
-
-    good_coarse_data = true;
-    pas_pos = pas.get_true_state_iterator(time)->position;
-    act_pos = act.get_true_state_iterator(time)->position;
+    bool good_coarse_data = true;
+    std::vector<double> pas_pos = pas.get_true_state_iterator(time)->position;
+    std::vector<double> act_pos = act.get_true_state_iterator(time)->position;
   
     std::vector<double> coarse = act_pos - pas_pos;
     dfs.pas_pos = pas_pos;
 
     // Проходим по всем присутствующим НКА
     for (const auto& ref_m : ref_mg.refined_measurements) {
+        // std::cout << ref_m.time << ' ' << ref_m.prn_id << std::endl;
+
         if (!ref_m.is_present) continue;
 
         std::vector<double> XiX = ref_m.gps_position - dfs.pas_pos;
@@ -295,9 +265,9 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     std::vector<double> x_m_est = C * x_est;
     std::vector<double> dx_m_est = dC * dfs_prev.x_est + C * dx_est;
 
-    logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
-    logger.logv("Previous error", abs(dfs_prev.x - get_true_state_iterator(time - 10)->position));
-    logger.logv("Model error", abs(x_est - get_true_state_iterator(time)->position));
+    // logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
+    // logger.logv("Previous error", abs(dfs_prev.x - get_true_state_iterator(time - 10)->position));
+    // logger.logv("Model error", abs(x_est - get_true_state_iterator(time)->position));
 
     // Собираем все в векторы кси     
     std::vector<double> xi_est(6);
@@ -305,6 +275,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         xi_est[i] = x_est[i];
         xi_est[i + 3] = dx_est[i];
     }
+
     std::vector<double> xi_m_diff(n * 2);
     for (size_t i = 0; i < n; ++i) {
         xi_m_diff[i] = xi_m[i] - x_m_est[i];
@@ -314,7 +285,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // 3.68
     while (n > 0) {
         if (model_steps > model_steps_threshold) {
-            logger.logv("Model steps exceed threshold, no filtering", model_steps);
+            logger.logv("Model steps exceed threshold, no diff filtering", model_steps);
             break;
         }
 
@@ -363,6 +334,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     Matrix C0_Gram = C0.transpose() * C0;
     bool good_trace = false;
+
     try {
         double trace = sqrt(C0_Gram.inverse().trace());
         good_trace = trace < C0_trace_threshold;
