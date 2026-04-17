@@ -7,28 +7,33 @@
 
 #include <string>
 #include <vector>
-#include <map>
-#include <set>
+#include <format>
 
 #include "Structures.hpp"
 
 class DataParser {
 public:
-    static std::vector<State> load_grace_fo_gnv_data(const std::string& date, const GRACE_SATS& sat);
-    static std::vector<RawMeasurementGroupped> load_grace_fo_gps_data(const std::string& date, const GRACE_SATS& sat);
+    static std::vector<State> load_grace_fo_gnv_data(const Date& date, const GRACE_SATS& sat);
+    static std::vector<RawMeasurementGroupped> load_grace_fo_gps_data(const Date& date, const GRACE_SATS& sat);
 
-    static std::vector<State> load_grace_gnv_data(const std::string& date, const GRACE_SATS& sat);
-    static std::vector<RawMeasurementGroupped> load_grace_gps_data(const std::string& date, const GRACE_SATS& sat);
-    static std::vector<AccelerationMeasurement> load_grace_acc_data(const std::string& date, const GRACE_SATS& sat);
+    static std::vector<State> load_grace_gnv_data(const Date& date, const GRACE_SATS& sat);
+    static std::vector<RawMeasurementGroupped> load_grace_gps_data(const Date& date, const GRACE_SATS& sat);
+    static std::vector<AccelerationMeasurement> load_grace_acc_data(const Date& date, const GRACE_SATS& sat);
     
-    static std::vector<State> load_swarm_nav_data(const std::string& date, const SWARM_SATS& sat);
-    static std::vector<RawMeasurementGroupped> load_swarm_gps_data(const std::string& date, const SWARM_SATS& sat);
+    static std::vector<State> load_swarm_nav_data(const Date& date, const SWARM_SATS& sat);
+    static std::vector<RawMeasurementGroupped> load_swarm_gps_data(const Date& date, const SWARM_SATS& sat);
 
-    static std::vector<std::vector<Ephemeris>> load_brdc_data(const std::string& date);
+    static std::vector<std::vector<Ephemeris>> load_brdc_data(const Date& date);
 
 private:
     static unsigned grace_to_gps_time(unsigned grace_time);
     static unsigned date_to_gps_time(unsigned year, unsigned month, unsigned day, unsigned hours, unsigned minutes, unsigned seconds);
+
+    static std::string date_to_grace_string(const Date& date);
+    static std::string date_to_swarm_string(const Date& date);
+    static std::string date_to_gps_string(const Date& date);
+
+    static unsigned get_day_of_the_year(unsigned month, unsigned day);
 
     template <typename T>
     static T bytes_to_T_endian(const char* bytes, T);

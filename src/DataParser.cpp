@@ -1,9 +1,9 @@
 #include "DataParser.hpp"
 
-std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& date, const GRACE_SATS& sat) {
+std::vector<State> DataParser::load_grace_fo_gnv_data(const Date& date, const GRACE_SATS& sat) {
     std::vector<State> true_states;
 
-    std::string filename = grace_gnv_dir + "GNV1B_" + date + "_" + satToChar(sat) + "_04.txt";
+    std::string filename = grace_gnv_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_04.txt";
 
     std::ifstream file;
     file.open(filename, std::ios::in);
@@ -53,12 +53,12 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const std::string& date, c
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std::string& date, const GRACE_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const Date& date, const GRACE_SATS& sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
     unsigned gps_time_current = 0;
 
-    std::string filename = grace_gps_dir + "GPS1B_" + date + "_" + satToChar(sat) + "_04.txt";
+    std::string filename = grace_gps_dir + "GPS1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_04.txt";
 
     std::ifstream file;
     file.open(filename, std::ios::in);
@@ -161,10 +161,10 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const std
     return raw_mgs;
 }
 
-std::vector<State> DataParser::load_grace_gnv_data(const std::string& date, const GRACE_SATS& sat) {
+std::vector<State> DataParser::load_grace_gnv_data(const Date& date, const GRACE_SATS& sat) {
     std::vector<State> true_states;
 
-    std::string filename = grace_gnv_dir + "GNV1B_" + date + "_" + satToChar(sat) + "_02.dat";
+    std::string filename = grace_gnv_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_02.dat";
 
     std::ifstream file;
     file.open(filename, std::ios::binary);
@@ -213,12 +213,12 @@ std::vector<State> DataParser::load_grace_gnv_data(const std::string& date, cons
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::string& date, const GRACE_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& date, const GRACE_SATS& sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
     unsigned gps_time_current = 0;
 
-    std::string filename = grace_gps_dir + "GPS1B_" + date + "_" + satToChar(sat) + "_02.dat";
+    std::string filename = grace_gps_dir + "GPS1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_02.dat";
 
     std::ifstream file;
     file.open(filename, std::ios::binary);
@@ -297,10 +297,10 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const std::s
     return raw_mgs;
 }
 
-std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::string& date, const GRACE_SATS& sat) {
+std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const Date& date, const GRACE_SATS& sat) {
     std::vector<AccelerationMeasurement> acc_ms;
 
-    std::string filename = grace_acc_dir + "GNV1B_" + date + "_" + satToChar(sat) + "_02.dat";
+    std::string filename = grace_acc_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_02.dat";
 
     std::ifstream file;
     file.open(filename, std::ios::binary);
@@ -351,10 +351,11 @@ std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const std::
     return acc_ms;
 }
 
-std::vector<State> DataParser::load_swarm_nav_data(const std::string& date, const SWARM_SATS& sat) {
+std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM_SATS& sat) {
     std::vector<State> true_states;
 
-    std::string filename = swarm_nav_dir + "SW_OPER_GPS" + satToChar(sat) + "NAV_1B_" + date + "T000000_" + date + "T235959_0602" + ".sp3";
+    std::string filename = swarm_nav_dir + "SW_OPER_GPS" + satToChar(sat) + "NAV_1B_" + date_to_swarm_string(date) + "T000000_" + 
+                                                                                        date_to_swarm_string(date) + "T235959_0602" + ".sp3";
     
     std::ifstream file;
     file.open(filename, std::ios::in);
@@ -402,11 +403,12 @@ std::vector<State> DataParser::load_swarm_nav_data(const std::string& date, cons
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const std::string& date, const SWARM_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const Date& date, const SWARM_SATS& sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
     
-    std::string filename = swarm_gps_dir + "SW_OPER_GPS" + satToChar(sat) + "_RO_1B_" + date + "T000000_" + date + "T235959_0602" + ".rnx";
+    std::string filename = swarm_gps_dir + "SW_OPER_GPS" + satToChar(sat) + "_RO_1B_" + date_to_swarm_string(date) + "T000000_" + 
+                                                                                        date_to_swarm_string(date) + "T235959_0602" + ".rnx";
 
     std::ifstream file;
     file.open(filename, std::ios::binary);
@@ -465,13 +467,12 @@ std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const std::s
     return raw_mgs;
 }
 
-// Парсить название файла из даты, а не передавать дату. Перенести инициализацию в SatNav?
 // Заменять D на E
-std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const std::string& date) {
+std::vector<std::vector<Ephemeris>> DataParser::load_brdc_data(const Date& date) {
     std::vector<std::vector<Ephemeris>> ephs(32);
     Ephemeris eph;
 
-    std::string filename = gps_brdc_dir + date;
+    std::string filename = gps_brdc_dir + date_to_gps_string(date);
 
     std::ifstream file;
     file.open(filename, std::ios::in);
@@ -537,16 +538,33 @@ unsigned DataParser::grace_to_gps_time(unsigned grace_time) {
 }
 
 unsigned DataParser::date_to_gps_time(unsigned year, unsigned month, unsigned day, unsigned hours, unsigned minutes, unsigned seconds) {
-
-    unsigned day_of_the_year = 0;
-    for (size_t i = 0; i < month - 1; ++i) {
-        day_of_the_year += month_day_count[i];
-    }
-    day_of_the_year += day;
-
+    unsigned day_of_the_year = get_day_of_the_year(month, day);
     unsigned seconds_since_midnight = seconds + minutes * 60 + hours * 3600;
 
     return (year - 1980) * 365 * day_seconds_count + 
            (day_of_the_year + 6) * day_seconds_count + 
            seconds_since_midnight;
+}
+
+std::string DataParser::date_to_grace_string(const Date& date) {
+    return std::format("{:04}-{:02}-{:02}", date.year, date.month, date.day);
+}
+
+std::string DataParser::date_to_swarm_string(const Date& date) {
+    return std::format("{:04}{:02}{:02}", date.year, date.month, date.day);
+}
+
+std::string DataParser::date_to_gps_string(const Date& date) {
+    unsigned day_of_the_year = get_day_of_the_year(date.month, date.day);
+    return std::format("brdc{:03}0.{:02}n", day_of_the_year, date.year % 100);
+}
+
+unsigned DataParser::get_day_of_the_year(unsigned month, unsigned day) {
+    unsigned day_of_the_year = 0;
+
+    for (size_t i = 0; i < month - 1; ++i) {
+        day_of_the_year += month_day_count[i];
+    }
+
+    return day_of_the_year + day;
 }

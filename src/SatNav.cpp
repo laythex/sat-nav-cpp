@@ -3,7 +3,7 @@
 
 // Собирать полный путь либо здесь, либо в DataParser
 
-SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler) : handler_(handler) {
+SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler) {
     bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
     if (is_fo) {
         true_states = DataParser::load_grace_fo_gnv_data(date, sat);
@@ -14,13 +14,13 @@ SatNav::SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& 
     }
 }
 
-SatNav::SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler) : handler_(handler) {
+SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
 
     true_states = DataParser::load_swarm_nav_data(date, sat);
     raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }
 
-SatNav::SatNav(const SatNav& sn) : handler_(sn.handler_), 
+SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
                                    acceleration_measurements(sn.acceleration_measurements) {}
@@ -108,10 +108,8 @@ bool SatNav::check_raw(const RawMeasurement& raw_m) {
     }
 
     if (error_type != 'S') {
-        double L1_CN0 = 20 * log10(raw_m.L1_SNR) - CN0_constant;
-        double L2_CN0 = 20 * log10(raw_m.L2_SNR) - CN0_constant;
-        double min_CN0 = std::min(L1_CN0, L2_CN0);
-        double max_CN0 = std::max(L1_CN0, L2_CN0);
+        double min_CN0 = std::min(raw_m.L1_CN0, raw_m.L2_CN0);
+        double max_CN0 = std::max(raw_m.L1_CN0, raw_m.L2_CN0);
 
         if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
             logger.log("Bad CN0: " + std::to_string(raw_m.prn_id) + ", " + std::to_string(min_CN0) + ", " + std::to_string(max_CN0));
@@ -130,27 +128,31 @@ bool SatNav::check_raw(const RawMeasurement& raw_m) {
 }
 
 RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
-    RefinedMeasurement ref_m1 = apply_clock_and_relativistic_errors(raw_m, 1);
-    RefinedMeasurement ref_m2 = apply_clock_and_relativistic_errors(raw_m, 2);
 
-    std::vector<double> gps_position = ref_m1.gps_position;
+    double pseudorange = raw_m.L1_range * C1 + raw_m.L2_range * C2;
+    double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
+
+    double clock_error = handler.get_clock_error(raw_m.prn_id, raw_m.time);
+    double relativistic_error = handler.get_relativistic_error(raw_m.prn_id, raw_m.time);
+
+    pseudorange += clock_error * c + relativistic_error * c;
+    double dt = pseudorange / c;
+
+    State gps_state = handler.get_state(raw_m.prn_id, raw_m.time - dt);
+
+    std::vector<double> gps_position = gps_state.position;
+    std::vector<double> gps_velocity = gps_state.velocity;
 
     if (error_type != 's') {
-        double phi = ref_m1.pseudorange / c * earth_rotation_rate;
+        double phi = earth_rotation_rate * dt;
         Matrix rot = rotation(-phi, 'z');
         gps_position = rot * gps_position;
     }
 
-    double pseudorange = ref_m1.pseudorange;
-    if (error_type != 'I') {
-        pseudorange = ref_m1.pseudorange * C1 + ref_m2.pseudorange * C2;
-    }
-    double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
-
-    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position, {0, 0, 0}};
+    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position, gps_velocity};
+    
 }
 
-RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurement& raw_m, unsigned frequency) {
     /*  Эффект                     t       t * v    t * c   
     (1) Задержка распространения - 80 мс - 240 км -  ---
     (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км
@@ -159,31 +161,6 @@ RefinedMeasurement SatNav::apply_clock_and_relativistic_errors(const RawMeasurem
     При расчете ошибки часов НКА учитываем только (1)
     При расчете эфемерид учитываем (1), (2)
     При корректировке псевдодальности учитываем (1), (2), (3) */
-    
-    double pseudorange;
-    if (frequency == 1) {
-        pseudorange = raw_m.L1_range;
-    } else if (frequency == 2) {
-        pseudorange = raw_m.L2_range;
-    }
-
-    double delay = 0;
-
-    double propagation_delay = pseudorange / c;
-    delay += propagation_delay;
-
-    double clock_error = handler_.get_clock_error(raw_m.prn_id, raw_m.time - delay);
-    delay += clock_error;
-
-    GPSState gs = handler_.get_state(raw_m.prn_id, raw_m.time - delay);
-
-    if (error_type != 'R') {
-        double relativistic_error = gs.relativistic_error;
-        delay += relativistic_error;
-    }
-
-    return {true, raw_m.time, raw_m.prn_id, delay * c, 0, gs.position, {0, 0, 0}};
-}
 
 SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_mg) const {
     SolutionState solution;

@@ -1,18 +1,12 @@
 #include "Structures.hpp"
 
+Date::Date(unsigned year, unsigned month, unsigned day) : year(year), month(month), day(day) {}
+
 State::State() : time(0), position(3, 0), velocity(3, 0) {}
 State::State(unsigned time, 
              const std::vector<double>& position,
              const std::vector<double>& velocity) :
              time(time), position(position), velocity(velocity) {}
-
-GPSState::GPSState() : State(), relativistic_error(0) {}
-GPSState::GPSState(unsigned time, 
-                   const std::vector<double>& position,
-                   const std::vector<double>& velocity,
-                   double relativistic_error) :
-                   State(time, position, velocity), 
-                   relativistic_error(relativistic_error) {}
 
 SolutionState::SolutionState() : State(), is_solved(false), failure_type('0'), GDOP(0) {}
 SolutionState::SolutionState(unsigned time, 
@@ -26,19 +20,19 @@ RawMeasurement::RawMeasurement() : is_present(false),
                                    time(0), prn_id(0), 
                                    L1_range(0), L2_range(0),
                                    L1_phase(0), L2_phase(0),
-                                   L1_SNR(0), L2_SNR(0),
+                                   L1_CN0(0), L2_CN0(0),
                                    qualflg(0) {}
 RawMeasurement::RawMeasurement(bool is_present,
                                unsigned time, unsigned prn_id,
                                double L1_range, double L2_range,
                                double L1_phase, double L2_phase,
-                               double L1_SNR, double L2_SNR,
+                               double L1_CN0, double L2_CN0,
                                unsigned qualflg) : 
                                is_present(is_present),
                                time(time), prn_id(prn_id), 
                                L1_range(L1_range), L2_range(L2_range), 
                                L1_phase(L1_phase), L2_phase(L2_phase),
-                               L1_SNR(L1_SNR), L2_SNR(L2_SNR),
+                               L1_CN0(L1_CN0), L2_CN0(L2_CN0),
                                qualflg(qualflg) {}
 
 RefinedMeasurement::RefinedMeasurement() : is_present(false), 

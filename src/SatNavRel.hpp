@@ -45,6 +45,10 @@ private:
     std::vector<double> estimate_dx();
     std::vector<double> estimate_dpp();
     Matrix calculate_B1();
+    double calculate_delta(const std::vector<double>& L, const std::vector<double>& dX, const std::vector<double>& V);
+
+    std::vector<double> solve_complex(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_m_est, const std::vector<double>& xi_est);
+    std::vector<double> solve_simple(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_est);
 
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
@@ -61,13 +65,13 @@ private:
 
     const double CN0_min_threshold = 25;
     const double CN0_max_threshold = 65;
-    const double C0_trace_threshold = 8;
-    const double xi_m_diff_threshold = 10;
+    const double C0_trace_threshold = 10;
+    const double meas_diff_threshold = 1000;
     const double W_norm_threshold = 100;
-    const unsigned model_steps_threshold = 10;
-    const unsigned model_steps_relaxation = 3;
+    const unsigned model_steps_meas_diff_threshold = 5;
+    const unsigned model_steps_relaxation_threshold = 10;
 
-    const double T_x = 10000;
+    const double T_x = 1;
     const double T_v = T_x;
     const double T_p = 2;
     Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},
@@ -76,8 +80,9 @@ private:
     Matrix Omega = {{{0, earth_rotation_rate, 0}, {-earth_rotation_rate, 0, 0}, {0, 0, 0}}};
 
     int df_state = 0;
-    unsigned model_steps = 0;
-    unsigned since_model_steps = 0;
+    bool is_model_step;
+    unsigned consecutive_model_steps = 0;
+    unsigned since_last_model_step = 0;
     Matrix W = zero(6, 6);
 
     // Предыдущее состояние системы для динамической фильтрации

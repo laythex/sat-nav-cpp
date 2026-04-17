@@ -1,17 +1,36 @@
 #include "GPSHandler.hpp"
 
-GPSHandler::GPSHandler(const std::string& brdc_filename) {
-    ephemeris = DataParser::load_brdc_data(brdc_filename);
+GPSHandler::GPSHandler(const Date& date) {
+    ephemeris = DataParser::load_brdc_data(date);
 }
 
 double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
     double t_sv = gps_to_sv(gps_time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
+
     double t = t_sv - eph.t_oe;
     return eph.a_f0 + eph.a_f1 * t + eph.a_f2 * t * t;
 }
 
-GPSState GPSHandler::get_state(unsigned prn_id, double gps_time) {
+double GPSHandler::get_relativistic_error(unsigned prn_id, double gps_time) {
+    double t_sv = gps_to_sv(gps_time);
+    const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
+
+    double t = t_sv - eph.t_oe;
+
+    double n_0 = mu_sqrt / (eph.A_sqrt * eph.A_sqrt * eph.A_sqrt);
+    double n = n_0 + eph.delta_n;
+    double M = eph.M_0 + n * t;
+
+    double E = M;
+    for (unsigned i = 0; i < 3; ++i) {
+        E += (M - E + eph.e * sin(E)) / (1 - eph.e * cos(E));
+    }
+
+    return F * eph.e * eph.A_sqrt * sin(E);
+}
+
+State GPSHandler::get_state(unsigned prn_id, double gps_time) {
     double t_sv = gps_to_sv(gps_time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
@@ -63,9 +82,7 @@ GPSState GPSHandler::get_state(unsigned prn_id, double gps_time) {
                 y_prime * (Omega_k_dot * sin(Omega) * cos(i) + i_dot * cos(Omega) * sin(i));
     double vz = y_prime_dot * sin(i) + y_prime * i_dot * cos(i);
 
-    double delta_t_r = F * eph.e * eph.A_sqrt * sin(E);
-
-    return {0, {x, y, z}, {vx, vy, vz}, delta_t_r};
+    return {0, {x, y, z}, {vx, vy, vz}};
 }
 
 const Ephemeris &GPSHandler::select_ephemeris(unsigned prn_id, double t_sv)

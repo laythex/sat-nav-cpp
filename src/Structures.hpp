@@ -2,6 +2,14 @@
 
 #include <vector>
 
+struct Date {
+    unsigned year;
+    unsigned month;
+    unsigned day;
+
+    Date(unsigned year, unsigned month, unsigned day);
+};
+
 struct Ephemeris {
     unsigned prn_id;
     int t_oe;
@@ -22,16 +30,6 @@ struct State {
           const std::vector<double>& velocity);
 };
 
-struct GPSState : State {
-    double relativistic_error;
-
-    GPSState();
-    GPSState(unsigned time, 
-             const std::vector<double>& position,
-             const std::vector<double>& velocity,
-             double relativistic_error);
-};
-
 struct SolutionState : State {
     bool is_solved;
     char failure_type;
@@ -50,7 +48,7 @@ struct RawMeasurement {
     unsigned prn_id;
     double L1_range, L2_range;
     double L1_phase, L2_phase;
-    double L1_SNR, L2_SNR;
+    double L1_CN0, L2_CN0;
     unsigned qualflg;
 
     RawMeasurement();
@@ -58,7 +56,7 @@ struct RawMeasurement {
                    unsigned time, unsigned prn_id,
                    double L1_range, double L2_range,
                    double L1_phase, double L2_phase,
-                   double L1_SNR, double L2_SNR,
+                   double L1_CN0, double L2_CN0,
                    unsigned qualflg);
 };
 

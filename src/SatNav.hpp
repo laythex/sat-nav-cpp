@@ -16,8 +16,8 @@ class SatNavRel;
 class SatNav {
 
 public:
-    SatNav(const std::string& date, const GRACE_SATS sat, const GPSHandler& handler);
-    SatNav(const std::string& date, const SWARM_SATS sat, const GPSHandler& handler);
+    SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler);
+    SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
     void solve(char et = '0', unsigned ti = 0, unsigned tf = 0);
@@ -37,13 +37,12 @@ public:
 private:
     bool check_raw(const RawMeasurement& raw_m);
     RefinedMeasurement refine_raw(const RawMeasurement& raw_m);
-    RefinedMeasurement apply_clock_and_relativistic_errors(const RawMeasurement& raw_m, unsigned frequency);
     SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg) const;
     bool check_fading(const RawMeasurement& raw_m);
     std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
 
-    GPSHandler handler_;
+    GPSHandler handler;
 
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;

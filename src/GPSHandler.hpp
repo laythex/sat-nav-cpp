@@ -13,10 +13,11 @@
 class GPSHandler {
 
 public:
-    GPSHandler(const std::string& brdc_filename);
+    GPSHandler(const Date& date);
     
     double get_clock_error(unsigned prn_id, double gps_time);
-    GPSState get_state(unsigned prn_id, double gps_time);
+    double get_relativistic_error(unsigned prn_id, double gps_time);
+    State get_state(unsigned prn_id, double gps_time);
 
 private:
     const Ephemeris& select_ephemeris(unsigned prn_id, double t_sv);
