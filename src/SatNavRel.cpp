@@ -190,11 +190,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         return solution;
     }
 
-    // Строим оценку вектора состояния путем прогноза
-    std::vector<double> dx_est = estimate_dx();
-    std::vector<double> x_est = dfs_prev.x + dx_est;
-    dfs.x_est = x_est; // Запоминаем для следующей итерации
-
     // Строим компоненты вектора измерений и строки матрицы C
     size_t n = 0;
     std::vector<double> xi_m_1_temp;
@@ -228,13 +223,14 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dC.at(i) = dC_rows_temp[i] - dC_rows_temp[j];
     }
 
+    // Строим оценку вектора состояния путем прогноза
+    std::vector<double> dx_est = estimate_dx();
+    std::vector<double> x_est = dfs_prev.x + dx_est;
+    dfs.x_est = x_est; // Запоминаем для следующей итерации
+
     // Строим оценку вектора измерений (3.55)
     std::vector<double> x_m_est = C * x_est;
     std::vector<double> dx_m_est = dC * dfs_prev.x_est + C * dx_est;
-
-    // logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
-    // logger.logv("Previous error", abs(dfs_prev.x - get_true_state_iterator(time - 10)->position));
-    // logger.logv("Model error", abs(x_est - get_true_state_iterator(time)->position));
 
     // Собираем все в векторы кси     
     std::vector<double> xi_est(6);
@@ -247,6 +243,28 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     for (size_t i = 0; i < n; ++i) {
         xi_m_est[i] = x_m_est[i];
         xi_m_est[i + n] = dx_m_est[i];
+    }
+
+    logger.logv("Prev pas error", abs(dfs_prev.pas_pos - pas.get_true_state_iterator(time - dt)->position));
+    logger.logv("Prev dx error", abs(dfs_prev.dx - (get_true_state_iterator(time - dt)->position - get_true_state_iterator(time - dt - dt)->position)));
+    logger.logv("Prev x error", abs(dfs_prev.x - get_true_state_iterator(time - dt)->position));
+
+    logger.logv("W norm after", W.norm());
+    logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
+    logger.logv("Model error (x_est)", abs(x_est - get_true_state_iterator(time)->position));
+    logger.logv("Model error (dx_est)", abs(dx_est - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
+    logger.logv("Previous error", abs(dfs_prev.x - get_true_state_iterator(time - dt)->position));
+
+    if (is_pure_modeling_mode) {
+        dfs.x = x_est;
+        dfs.dx = dx_est;
+        dfs_prev = dfs;
+        is_model_step = true;
+        ++consecutive_model_steps;
+        since_last_model_step = 0;
+        solution.position = dfs.x;
+        solution.is_solved = true;
+        return solution;
     }
 
     // 3.68
@@ -339,8 +357,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     //     dfs.x = x_est;
     //     dfs.dx = dx_est;
 
-    //     ++model_steps;
-    //     since_model_steps = 0;
+    //     ++consecutive_model_steps;
+    //     since_last_model_step = 0;
 
     //     dfs_prev = dfs;
     //     solution.position = dfs.x;
@@ -349,22 +367,35 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     //     logger.log("Pure modeling");
     //     logger.logv("Reseted W", W.norm());
-    //     logger.logv("Model steps", model_steps);
+    //     logger.logv("Model steps", consecutive_model_steps);
 
     //     return solution;
     // }
 
-    std::vector<double> xi;
-    if (since_last_model_step > model_steps_relaxation_threshold) {
-        xi = solve_complex(xi_m, C0, xi_m_est, xi_est);
-    } else {
-        xi = solve_simple(xi_m, C0, xi_est);
+    Matrix B1 = calculate_B1();
+    std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
+    W = B1.transpose() * lambda * W * lambda * B1 + C0.transpose() * C0;
+
+    std::vector<double> d_xi(6);
+    try {
+        d_xi = W.inverse() * P;
+        is_model_step = false;
+    } catch (const std::runtime_error& runtime_error) {
+        is_model_step = true;
+        logger.log("W is non-invertible: " + std::string(runtime_error.what()));
     }
+    std::vector<double> xi = xi_est + d_xi;
+
+    logger.logv("W norm after", W.norm());
 
     for (size_t i = 0; i < 3; ++i) {
         dfs.x[i] = xi[i];
         dfs.dx[i] = xi[i + 3];
     }
+
+    std::cout << time << std::endl << xi_m << std::endl << xi_m_est << std::endl;
+    logger.logv("dx error", abs(dfs.dx - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt - dt)->position)));
+    logger.logv("x error", abs(dfs.x - get_true_state_iterator(time)->position));
 
     if (is_model_step) {
         ++consecutive_model_steps;
@@ -374,6 +405,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         ++since_last_model_step;
     }
 
+    logger.logv("Is model step", is_model_step);
     logger.logv("Time since last model step", since_last_model_step);
     logger.logv("Consecutive model steps", consecutive_model_steps);
 
@@ -391,7 +423,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 }
 
 std::vector<double> SatNavRel::estimate_dpp() {
-    double dt = 10;
     double r = abs(dfs_prev.pas_pos);
     double omega2 = earth_mu / (r * r * r);
 
@@ -401,7 +432,6 @@ std::vector<double> SatNavRel::estimate_dpp() {
 }
 
 std::vector<double> SatNavRel::estimate_dx() {
-    double dt = 10;
     double r = abs(dfs_prev.pas_pos);
     double omega2 = earth_mu / (r * r * r);
     Matrix D = 3 * tensor(dfs_prev.pas_pos, dfs_prev.pas_pos) / (r * r);
@@ -412,7 +442,6 @@ std::vector<double> SatNavRel::estimate_dx() {
 }
 
 Matrix SatNavRel::calculate_B1() {
-    double dt = 10;
     double r = abs(dfs_prev.pas_pos);
     double omega2 = earth_mu / (r * r * r);
     Matrix D = 3 * tensor(dfs_prev.pas_pos, dfs_prev.pas_pos) / (r * r);
@@ -433,51 +462,6 @@ double SatNavRel::calculate_delta(const std::vector<double>& L, const std::vecto
     double VdX = dot(V, dX);
     return dXdX / (2 * Ln) - LdX * LdX / (2 * Ln * Ln * Ln) - LdX * LdX * LdX / (2 * Ln * Ln * Ln * Ln * Ln) + LdX * dXdX / (2 * Ln * Ln * Ln) +
            VdX / c - VdX * VdX / (Ln * c * c) + VdX * VdX * VdX / (2 * Ln * Ln * c * c * c) - VdX * dXdX / (2 * Ln * Ln * c);
-}
-
-std::vector<double> SatNavRel::solve_complex(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_m_est, const std::vector<double>& xi_est) {
-    logger.log("Complex solving");    
-    
-    Matrix B1 = calculate_B1();
-
-    std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
-    W = B1.transpose() * lambda * W * lambda * B1 + C0.transpose() * C0;
-
-    logger.logv("W norm after", W.norm());
-
-    std::vector<double> d_xi(6);
-    try {
-        d_xi = W.inverse() * P;
-        is_model_step = false;
-    } catch (const std::runtime_error& runtime_error) {
-        is_model_step = true;
-        logger.log("W is non-invertible: " + std::string(runtime_error.what()));
-    }
-
-    return xi_est + d_xi;
-}
-
-std::vector<double> SatNavRel::solve_simple(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_est) {
-    logger.log("Simple solving");    
-    
-    Matrix B1 = calculate_B1();
-
-    std::vector<double> P = C0.transpose() * xi_m;
-    W = C0.transpose() * C0;
-
-    logger.logv("W norm after", W.norm());
-
-    std::vector<double> xi(6);
-    try {
-        std::vector<double> xi = W.inverse() * P;
-        is_model_step = false;
-    } catch (const std::runtime_error& runtime_error) {
-        xi = xi_est;
-        is_model_step = true;
-        logger.log("W is non-invertible: " + std::string(runtime_error.what()));
-    }
-
-    return xi;
 }
 
 const std::vector<State>& SatNavRel::get_true_states() const {

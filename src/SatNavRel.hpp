@@ -47,9 +47,6 @@ private:
     Matrix calculate_B1();
     double calculate_delta(const std::vector<double>& L, const std::vector<double>& dX, const std::vector<double>& V);
 
-    std::vector<double> solve_complex(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_m_est, const std::vector<double>& xi_est);
-    std::vector<double> solve_simple(const std::vector<double>& xi_m, const Matrix& C0, const std::vector<double>& xi_est);
-
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
     std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
@@ -61,7 +58,6 @@ private:
     const double c = 2.99792458e8;
     const double earth_rotation_rate = 7.2921151467e-5;
     const double earth_mu = 3.986004418e14;
-    const double CN0_constant = 3.01029995664;
 
     const double CN0_min_threshold = 25;
     const double CN0_max_threshold = 65;
@@ -69,9 +65,11 @@ private:
     const double meas_diff_threshold = 1000;
     const double W_norm_threshold = 100;
     const unsigned model_steps_meas_diff_threshold = 5;
-    const unsigned model_steps_relaxation_threshold = 10;
+    const unsigned model_steps_relaxation_threshold = 5;
 
-    const double T_x = 1;
+    const bool is_pure_modeling_mode = false;
+    const unsigned dt = 1;
+    const double T_x = 100;
     const double T_v = T_x;
     const double T_p = 2;
     Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},

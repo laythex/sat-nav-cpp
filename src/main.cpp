@@ -54,7 +54,7 @@ int main() {
     SatNav problem2 = SatNav(date, SWARM_SATS::C, handler);
 
     SatNavRel problem_rel(problem1, problem2);
-    PlotterRel plotter(problem_rel, 0, 1500);
+    PlotterRel plotter(problem_rel, 3000, 3100);
 
     double m = 0;
     plotter.plot_errors_norm(0, m);
