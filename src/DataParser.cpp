@@ -264,9 +264,9 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& 
         file.read(record, 2);
 
         file.read(record, 2);
-        double L1_SNR = bytes_to_T_endian(record, (unsigned short)(0));
+        double L1_CN0 = convert_SNR_to_CN0(bytes_to_T_endian(record, (unsigned short)(0)));
         file.read(record, 2);
-        double L2_SNR = bytes_to_T_endian(record, (unsigned short)(0));
+        double L2_CN0 = convert_SNR_to_CN0(bytes_to_T_endian(record, (unsigned short)(0)));
 
         file.read(record, 6);
 
@@ -274,7 +274,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& 
                                 gps_time, prn_id,
                                 L1_range, L2_range,
                                 L1_phase, L2_phase,
-                                L1_SNR, L2_SNR,
+                                L1_CN0, L2_CN0,
                                 qualflg};
 
         if (gps_time_current == 0) gps_time_current = gps_time;
@@ -356,7 +356,6 @@ std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM
 
     std::string filename = swarm_nav_dir + "SW_OPER_GPS" + satToChar(sat) + "NAV_1B_" + date_to_swarm_string(date) + "T000000_" + 
                                                                                         date_to_swarm_string(date) + "T235959_0602" + ".sp3";
-    
     std::ifstream file;
     file.open(filename, std::ios::in);
 
@@ -366,7 +365,7 @@ std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM
     for (size_t i = 0; i < skiprows; ++i) {
         std::getline(file, line);
     }
-    
+
     while (!file.eof()) {
         std::getline(file, line);
 
@@ -406,7 +405,7 @@ std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM
 std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const Date& date, const SWARM_SATS& sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
-    
+
     std::string filename = swarm_gps_dir + "SW_OPER_GPS" + satToChar(sat) + "_RO_1B_" + date_to_swarm_string(date) + "T000000_" + 
                                                                                         date_to_swarm_string(date) + "T235959_0602" + ".rnx";
 
@@ -438,20 +437,20 @@ std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const Date& 
 
             unsigned prn_id = static_cast<unsigned>(std::stoul(line.substr(1, 2)));
 
-            // double C1C = std::stod(line.substr(3, 14));     // L1 C/A PR
+            double C1C = std::stod(line.substr(3, 14));     // L1 C/A PR
             double L1C = std::stod(line.substr(19, 14));    // L1 C/A CP
-            // double S1C = std::stod(line.substr(35, 14));    // L1 C/A SNR
-            double C1W = std::stod(line.substr(51, 14));    // L1 Z   PR
-            double S1W = std::stod(line.substr(67, 14));    // L2 Z   SNR
+            double S1C = std::stod(line.substr(35, 14));    // L1 C/A CN0
+            // double C1W = std::stod(line.substr(51, 14));    // L1 Z   PR
+            // double S1W = std::stod(line.substr(67, 14));    // L1 Z   CN0
             double C2W = std::stod(line.substr(83, 14));    // L2 Z   PR
             double L2W = std::stod(line.substr(99, 14));    // L2 Z   CP
-            double S2W = std::stod(line.substr(115, 14));   // L2 Z   SNR
-
+            double S2W = std::stod(line.substr(115, 14));   // L2 Z   CN0
+            // std::cout << std::fixed << seconds << ' ' << prn_id << ' ' << C1C << ' ' << C2W << ' ' << L2W << ' ' << S2W << std::endl;
             RawMeasurement raw_m = {true,
                                     gps_time, prn_id,
-                                    C1W, C2W,
+                                    C1C, C2W,
                                     L1C, L2W,               // Отсутствует L1W, поэтому hatch-фильтр не используем
-                                    S1W, S2W, 
+                                    S1C, S2W, 
                                     0};
 
             size_t prn_index = prn_id - 1;
@@ -567,4 +566,8 @@ unsigned DataParser::get_day_of_the_year(unsigned month, unsigned day) {
     }
 
     return day_of_the_year + day;
+}
+
+double DataParser::convert_SNR_to_CN0(double SNR) {
+    return 20 * log10(SNR) - 3.01029995664;
 }

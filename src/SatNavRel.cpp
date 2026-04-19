@@ -63,8 +63,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
             logger.logv("Refining", prn_id);
 
             // Непосредственно их обрабатываем
-            RefinedMeasurement ref_m = refine_raw(raw_m_pas, raw_m_act);
-            ref_ms[prn_index] = ref_m;
+            ref_ms[prn_index] = refine_raw(raw_m_pas, raw_m_act);
         }
 
         // Группируем обработанные измерения со всех спутников
@@ -72,8 +71,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         refined_measurements_groupped.push_back(ref_mg);
 
         // Ищем решение
-        SolutionState solution;
-        solution = calculate_solution(ref_mg);
+        SolutionState solution = calculate_solution(ref_mg);
         solution_states.push_back(solution);
  
         logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
@@ -223,9 +221,17 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         dC.at(i) = dC_rows_temp[i] - dC_rows_temp[j];
     }
 
+    Matrix B1 = calculate_B1();
+    Matrix C0 = zero(n * 2, 6);
+    C0.insert(C, 0, 0);
+    C0.insert(C, n, 3);
+
     // Строим оценку вектора состояния путем прогноза
     std::vector<double> dx_est = estimate_dx();
     std::vector<double> x_est = dfs_prev.x + dx_est;
+    dx_est = coarse - dfs_prev.x; // модель разваливается
+    x_est = coarse;
+
     dfs.x_est = x_est; // Запоминаем для следующей итерации
 
     // Строим оценку вектора измерений (3.55)
@@ -239,21 +245,19 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         xi_est[i + 3] = dx_est[i];
     }
 
-    std::vector<double> xi_m_est(n * 2);
+    std::vector<double> xi_m_diff(n * 2);
     for (size_t i = 0; i < n; ++i) {
-        xi_m_est[i] = x_m_est[i];
-        xi_m_est[i + n] = dx_m_est[i];
+        xi_m_diff[i] = xi_m[i] - x_m_est[i];
+        xi_m_diff[i + n] = xi_m[i + n] - dx_m_est[i];
     }
 
-    logger.logv("Prev pas error", abs(dfs_prev.pas_pos - pas.get_true_state_iterator(time - dt)->position));
-    logger.logv("Prev dx error", abs(dfs_prev.dx - (get_true_state_iterator(time - dt)->position - get_true_state_iterator(time - dt - dt)->position)));
-    logger.logv("Prev x error", abs(dfs_prev.x - get_true_state_iterator(time - dt)->position));
+    // std::cout << time << std::endl << xi_m << std::endl << xi_m_est << std::endl;
+    // std::cout << (C0.transpose() * C0).inverse() * C0.transpose() * xi_m << std::endl;
+    // std::cout << (C0.transpose() * C0).inverse() * C0.transpose() * xi_m_est << std::endl;
+    // std::cout << get_true_state_iterator(time)->position << get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position << std::endl;
+    // std::cout << std::endl;
 
-    logger.logv("W norm after", W.norm());
-    logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
-    logger.logv("Model error (x_est)", abs(x_est - get_true_state_iterator(time)->position));
-    logger.logv("Model error (dx_est)", abs(dx_est - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
-    logger.logv("Previous error", abs(dfs_prev.x - get_true_state_iterator(time - dt)->position));
+    // throw std::runtime_error("haha");
 
     if (is_pure_modeling_mode) {
         dfs.x = x_est;
@@ -268,112 +272,106 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     }
 
     // 3.68
-    // while (n > 0) {
-    //     if (model_steps > model_steps_meas_diff_threshold) {
-    //         logger.logv("Model steps exceed threshold, no meas diff filtering", model_steps);
-    //         break;
-    //     }
+    while (n > 0) {
+        if (consecutive_model_steps > model_steps_meas_diff_threshold) {
+            logger.logv("Model steps exceed threshold, no meas diff filtering", consecutive_model_steps);
+            break;
+        }
 
-    //     if (since_model_steps < model_steps_relaxation_threshold) {
-    //         logger.logv("Too early since last model step, no meas diff filtering", since_model_steps);
-    //         break;
-    //     }
+        if (since_last_model_step < model_steps_relaxation_threshold) {
+            logger.logv("Too early since last model step, no meas diff filtering", since_last_model_step);
+            break;
+        }
 
-    //     size_t max_at = find_max_abs(xi_m_diff);
-    //     double max_diff = std::abs(xi_m_diff[max_at]);
+        size_t max_at = find_max_abs(xi_m_diff);
+        double max_diff = std::abs(xi_m_diff[max_at]);
 
-    //     if (max_diff > meas_diff_threshold) {
-    //         if (max_at > n) max_at -= n;
+        if (max_diff > meas_diff_threshold) {
+            if (max_at > n) max_at -= n;
 
-    //         std::vector<double> xi_m_diff_new((n - 1) * 2);
-    //         Matrix C_new(n - 1, 3);
+            std::vector<double> xi_m_diff_new((n - 1) * 2);
+            Matrix C_new(n - 1, 3);
             
-    //         for (size_t i = 0; i < n - 1; ++i) {
-    //             if (i < max_at) {
-    //                 xi_m_diff_new[i] = xi_m_diff[i];
-    //                 xi_m_diff_new[i + n] = xi_m_diff[i + n];
-    //                 C_new.at(i) = C(i);
-    //             } else {
-    //                 xi_m_diff_new[i] = xi_m_diff[i + 1];
-    //                 xi_m_diff_new[i + n] = xi_m_diff[i + 1 + n];
-    //                 C_new.at(i) = C(i + 1);
-    //             }
-    //         }
+            for (size_t i = 0; i < n - 1; ++i) {
+                if (i < max_at) {
+                    xi_m_diff_new[i] = xi_m_diff[i];
+                    xi_m_diff_new[i + n] = xi_m_diff[i + n];
+                    C_new.at(i) = C(i);
+                } else {
+                    xi_m_diff_new[i] = xi_m_diff[i + 1];
+                    xi_m_diff_new[i + n] = xi_m_diff[i + 1 + n];
+                    C_new.at(i) = C(i + 1);
+                }
+            }
 
-    //         n--;
-    //         xi_m_diff = xi_m_diff_new;
-    //         C = C_new;
+            n--;
+            xi_m_diff = xi_m_diff_new;
+            C = C_new;
 
-    //         logger.log("Removed at " + std::to_string(max_at) + " out of " + std::to_string(n) + ", " + std::to_string(max_diff));
-    //     } else {
-    //         logger.log("Max diff at " + std::to_string(max_at) + " out of " + std::to_string(n) + ", " + std::to_string(max_diff));
-    //         break;
-    //     }
-    // }
+            logger.log("Removed at " + std::to_string(max_at) + " out of " + std::to_string(n) + ", " + std::to_string(max_diff));
+        } else {
+            logger.log("Max diff at " + std::to_string(max_at) + " out of " + std::to_string(n) + ", " + std::to_string(max_diff));
+            break;
+        }
+    }
 
     logger.logv("Sat count after diff filtering (n)", n);
 
     // Сглаживание измерений
-    // for (size_t i = 0; i < n; ++i) {
-    //     xi_m_diff[i] = 1 / T_p * xi_m_diff[i] + (1 - 1 / T_p) * xi_m_diff[i + n];
-    // }
+    for (size_t i = 0; i < n; ++i) {
+        xi_m_diff[i] = 1 / T_p * xi_m_diff[i] + (1 - 1 / T_p) * xi_m_diff[i + n];
+    }
 
-    Matrix C0 = zero(n * 2, 6);
-    C0.insert(C, 0, 0);
-    C0.insert(C, n, 3);
-
-    // bool good_trace = false;
-
+    double trace;
     try {
-        double trace = sqrt((C0.transpose() * C0).inverse().trace());
-        // good_trace = trace < C0_trace_threshold;
+        trace = sqrt((C0.transpose() * C0).inverse().trace());
         logger.logv("Trace", trace);
     } catch (const std::runtime_error&) {
+        trace = C0_trace_threshold * 2;
         logger.log("Trace failed");
     }
 
-    // if (!good_trace) {
-    //     W = B1.transpose() * lambda * W * lambda * B1;
-    //     dfs.x = x_est;
-    //     dfs.dx = dx_est;
+    if (trace > C0_trace_threshold) {
+        W = B1.transpose() * lambda * W * lambda * B1;
+        dfs.x = x_est;
+        dfs.dx = dx_est;
         
-    //     ++model_steps;
-    //     since_model_steps = 0;
+        ++consecutive_model_steps;
+        since_last_model_step = 0;
 
-    //     dfs_prev = dfs;
-    //     solution.position = dfs.x;
-    //     solution.is_solved = false;
-    //     solution.failure_type = 'T';
+        dfs_prev = dfs;
+        solution.position = dfs.x;
+        solution.is_solved = false;
+        solution.failure_type = 'T';
 
-    //     logger.log("Pure modeling");
-    //     logger.log("Bad trace");
-    //     logger.logv("Model steps", model_steps);
+        logger.log("Pure modeling");
+        logger.log("Bad trace");
+        logger.logv("Model steps", consecutive_model_steps);
         
-    //     return solution;
-    // }
+        return solution;
+    }
 
-    // if (W.norm() > W_norm_threshold) {
-    //     W = zero(6, 6);
-    //     dfs.x = x_est;
-    //     dfs.dx = dx_est;
+    if (W.norm() > W_norm_threshold) {
+        W = zero(6, 6);
+        dfs.x = x_est;
+        dfs.dx = dx_est;
 
-    //     ++consecutive_model_steps;
-    //     since_last_model_step = 0;
+        ++consecutive_model_steps;
+        since_last_model_step = 0;
 
-    //     dfs_prev = dfs;
-    //     solution.position = dfs.x;
-    //     solution.is_solved = false;
-    //     solution.failure_type = 'W';
+        dfs_prev = dfs;
+        solution.position = dfs.x;
+        solution.is_solved = false;
+        solution.failure_type = 'W';
 
-    //     logger.log("Pure modeling");
-    //     logger.logv("Reseted W", W.norm());
-    //     logger.logv("Model steps", consecutive_model_steps);
+        logger.log("Pure modeling");
+        logger.logv("Reseted filter", W.norm());
+        logger.logv("Model steps", consecutive_model_steps);
 
-    //     return solution;
-    // }
+        return solution;
+    }
 
-    Matrix B1 = calculate_B1();
-    std::vector<double> P = C0.transpose() * (xi_m - xi_m_est);
+    std::vector<double> P = C0.transpose() * xi_m_diff;
     W = B1.transpose() * lambda * W * lambda * B1 + C0.transpose() * C0;
 
     std::vector<double> d_xi(6);
@@ -386,15 +384,16 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     }
     std::vector<double> xi = xi_est + d_xi;
 
-    logger.logv("W norm after", W.norm());
-
     for (size_t i = 0; i < 3; ++i) {
         dfs.x[i] = xi[i];
         dfs.dx[i] = xi[i + 3];
     }
 
-    std::cout << time << std::endl << xi_m << std::endl << xi_m_est << std::endl;
-    logger.logv("dx error", abs(dfs.dx - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt - dt)->position)));
+    logger.logv("W norm after", W.norm());
+    logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
+    logger.logv("Model error (x_est)", abs(x_est - get_true_state_iterator(time)->position));
+    logger.logv("Model error (dx_est)", abs(dx_est - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
+    logger.logv("dx error", abs(dfs.dx - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
     logger.logv("x error", abs(dfs.x - get_true_state_iterator(time)->position));
 
     if (is_model_step) {
@@ -420,15 +419,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     dfs_prev = dfs;
     solution.position = dfs.x;
     return solution;
-}
-
-std::vector<double> SatNavRel::estimate_dpp() {
-    double r = abs(dfs_prev.pas_pos);
-    double omega2 = earth_mu / (r * r * r);
-
-    return (E3 + 2 * Omega * dt) * dfs_prev.d_pas_pos - 
-           Omega * Omega * dfs_prev.pas_pos * dt * dt - 
-           omega2 * dfs_prev.pas_pos * dt * dt;
 }
 
 std::vector<double> SatNavRel::estimate_dx() {

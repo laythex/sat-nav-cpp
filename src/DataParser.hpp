@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <format>
+#include <cmath>
 
 #include "Structures.hpp"
 
@@ -34,6 +35,8 @@ private:
     static std::string date_to_gps_string(const Date& date);
 
     static unsigned get_day_of_the_year(unsigned month, unsigned day);
+
+    static double convert_SNR_to_CN0(double SNR);
 
     template <typename T>
     static T bytes_to_T_endian(const char* bytes, T);

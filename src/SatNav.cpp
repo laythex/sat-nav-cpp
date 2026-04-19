@@ -15,7 +15,6 @@ SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler
 }
 
 SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
-
     true_states = DataParser::load_swarm_nav_data(date, sat);
     raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }

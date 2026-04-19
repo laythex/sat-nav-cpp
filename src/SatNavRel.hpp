@@ -43,7 +43,6 @@ private:
     SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg);
 
     std::vector<double> estimate_dx();
-    std::vector<double> estimate_dpp();
     Matrix calculate_B1();
     double calculate_delta(const std::vector<double>& L, const std::vector<double>& dX, const std::vector<double>& V);
 
@@ -61,15 +60,15 @@ private:
 
     const double CN0_min_threshold = 25;
     const double CN0_max_threshold = 65;
-    const double C0_trace_threshold = 10;
-    const double meas_diff_threshold = 1000;
+    const double C0_trace_threshold = 8;
+    const double meas_diff_threshold = 10;
     const double W_norm_threshold = 100;
     const unsigned model_steps_meas_diff_threshold = 5;
-    const unsigned model_steps_relaxation_threshold = 5;
+    const unsigned model_steps_relaxation_threshold = 10;
 
     const bool is_pure_modeling_mode = false;
-    const unsigned dt = 1;
-    const double T_x = 100;
+    const unsigned dt = 10;
+    const double T_x = 1;
     const double T_v = T_x;
     const double T_p = 2;
     Matrix lambda = {{{T_x / (T_x + 1), 0, 0, 0, 0, 0}, {0, T_x / (T_x + 1), 0, 0, 0, 0}, {0, 0, T_x / (T_x + 1), 0, 0, 0},
