@@ -1,26 +1,19 @@
 #include "SatNavRel.hpp"
 #include "SatNav.hpp"
 
-SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active) {}
+SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active), logger("RGPS") {}
 
-SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act), true_states(sn.true_states) {}
+SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act), true_states(sn.true_states), logger("RGPS") {}
                                         
 void SatNavRel::solve_separately(char et, unsigned ti, unsigned tf) {
     pas.solve(et, ti, tf);
     act.solve(et, ti, tf);
 
-    unsigned t0 = pas.get_true_states()[0].time;
     for (const State& ts_pas : pas.get_true_states()) {
-
         unsigned time = ts_pas.time;
-        if (ti > 0 || tf > 0) {
-            if ((time - t0) < ti || (time - t0) >= tf) continue;
-        }
-
         auto ts_act_it = act.get_true_state_iterator(time);
         if (ts_act_it == act.get_true_states().end()) continue;
         State ts_act = *ts_act_it;
-
         true_states.push_back({time, ts_act.position - ts_pas.position, ts_act.velocity - ts_pas.velocity});
     }
 }
@@ -29,23 +22,34 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
     solve_separately(et, ti, tf);
 
-    logger.log("Starting to solve...");
+    logger.log("Starting RGPS solving");
 
     error_type = et;
     double err_avg = 0;
     double err_cnt = 0;
 
-    unsigned t0 = pas.raw_measurements_groupped[0].time;
-    for (const auto& raw_mg_pas : pas.raw_measurements_groupped) {
+    unsigned t_front = std::min(pas.raw_measurements_groupped.front().time,
+                                act.raw_measurements_groupped.front().time);
+    unsigned t_back = std::max(pas.raw_measurements_groupped.back().time,
+                               act.raw_measurements_groupped.back().time);
 
-        unsigned time = raw_mg_pas.time;
+    for (unsigned time = t_front; time < t_back; time += dt) {
+
         if (ti > 0 || tf > 0) {
-            if ((time - t0) < ti || (time - t0) >= tf) continue;
+            if ((time - t_front) < ti || (time - t_front) >= tf) continue;
         }
 
+        RawMeasurementGroupped raw_mg_pas = {time, std::vector<RawMeasurement>(32)};
+        auto raw_mg_pas_it = pas.get_raw_measurement_groupped_iterator(time);
+        if (raw_mg_pas_it != pas.raw_measurements_groupped.end()) {
+            raw_mg_pas = *raw_mg_pas_it;
+        }
+
+        RawMeasurementGroupped raw_mg_act = {time, std::vector<RawMeasurement>(32)};
         auto raw_mg_act_it = act.get_raw_measurement_groupped_iterator(time);
-        if (raw_mg_act_it == act.raw_measurements_groupped.end()) continue;
-        RawMeasurementGroupped raw_mg_act = *raw_mg_act_it;
+        if (raw_mg_act_it != act.raw_measurements_groupped.end()) {
+            raw_mg_act = *raw_mg_act_it;
+        }
 
         logger.logv("Time", time);
 
@@ -73,10 +77,11 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         // Ищем решение
         SolutionState solution = calculate_solution(ref_mg);
         solution_states.push_back(solution);
- 
+
         logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
         auto ts = get_true_state_iterator(raw_mg_pas.time);
         double error = abs(solution.position - ts->position);
+
         logger.logv("Error norm", error);
         if (solution.is_solved) {
             err_avg += error;
@@ -92,9 +97,9 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
     err_avg /= static_cast<double>(err_cnt);
     logger.logv("Average error", err_avg);
-    std::cout << "Avg error: " << err_avg << ' ' << err_cnt << std::endl;
+    std::cout << std::format("Avergate error: {:.3f}, Solution count: {}", err_avg, err_cnt) << std::endl;
 
-    logger.log("Finished solving");
+    logger.log("Finished RGPS solving");
 }
 
 bool SatNavRel::check_raw(const RawMeasurement& raw_m_pas, const RawMeasurement& raw_m_act) {
@@ -143,12 +148,9 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     DynamicFilterState dfs;
     dfs.time = time;
-
-    std::vector<double> pas_pos = pas.get_true_state_iterator(time)->position;
-    std::vector<double> act_pos = act.get_true_state_iterator(time)->position;
   
-    std::vector<double> coarse = act_pos - pas_pos;
-    dfs.pas_pos = pas_pos;
+    std::vector<double> coarse = get_coarse(time);
+    dfs.pas_pos = pas.get_true_state_iterator(time)->position;
 
     // Проходим по всем присутствующим НКА
     for (const auto& ref_m : ref_mg.refined_measurements) {
@@ -229,10 +231,10 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // Строим оценку вектора состояния путем прогноза
     std::vector<double> dx_est = estimate_dx();
     std::vector<double> x_est = dfs_prev.x + dx_est;
-    // dx_est = coarse - dfs_prev.x; // модель разваливается
-    // x_est = coarse;
-
     dfs.x_est = x_est; // Запоминаем для следующей итерации
+
+    logger.logv("Model error (x_est)", abs(x_est - get_true_state_iterator(time)->position));
+    logger.logv("Model error (dx_est)", abs(dx_est - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
 
     // Строим оценку вектора измерений (3.55)
     std::vector<double> x_m_est = C * x_est;
@@ -353,7 +355,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     if (W.norm() > W_norm_threshold) {
         W = zero(6, 6);
-        dfs.x = x_est;
+        dfs.x = coarse;
         dfs.dx = dx_est;
 
         ++consecutive_model_steps;
@@ -391,8 +393,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     logger.logv("W norm after", W.norm());
     logger.logv("Passive error", abs(dfs.pas_pos - pas.get_true_state_iterator(time)->position));
-    logger.logv("Model error (x_est)", abs(x_est - get_true_state_iterator(time)->position));
-    logger.logv("Model error (dx_est)", abs(dx_est - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
     logger.logv("dx error", abs(dfs.dx - (get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position)));
     logger.logv("x error", abs(dfs.x - get_true_state_iterator(time)->position));
 
@@ -452,6 +452,10 @@ double SatNavRel::calculate_delta(const std::vector<double>& L, const std::vecto
     double VdX = dot(V, dX);
     return dXdX / (2 * Ln) - LdX * LdX / (2 * Ln * Ln * Ln) - LdX * LdX * LdX / (2 * Ln * Ln * Ln * Ln * Ln) + LdX * dXdX / (2 * Ln * Ln * Ln) +
            VdX / c - VdX * VdX / (Ln * c * c) + VdX * VdX * VdX / (2 * Ln * Ln * c * c * c) - VdX * dXdX / (2 * Ln * Ln * c);
+}
+
+std::vector<double> SatNavRel::get_coarse(unsigned time) {
+    return act.get_true_state_iterator(time)->position - pas.get_true_state_iterator(time)->position;
 }
 
 const std::vector<State>& SatNavRel::get_true_states() const {

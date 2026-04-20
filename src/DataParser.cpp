@@ -234,7 +234,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& 
         file.read(record, 4); 
         unsigned grace_time = bytes_to_T_endian(record, unsigned());
         unsigned gps_time = grace_to_gps_time(grace_time);
-        
+
         if (static_cast<int>(record[0]) == 0) break;
 
         file.read(record, 5);

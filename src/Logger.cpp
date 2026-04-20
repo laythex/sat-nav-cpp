@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-Logger::Logger() {
-    file.open("../logs/log.txt", std::fstream::out);
+Logger::Logger(const std::string& filename) {
+    file.open(std::format("../logs/{}.txt", filename), std::ofstream::trunc);
 }
 
 Logger::~Logger() {

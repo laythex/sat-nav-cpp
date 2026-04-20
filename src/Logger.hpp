@@ -1,12 +1,12 @@
 #pragma once
 
 #include <string>
-
+#include <format>
 #include <fstream>
 
 class Logger {
 public:
-    Logger();
+    Logger(const std::string& filename);
     ~Logger();
     
     void lnbr(char end = '\n');

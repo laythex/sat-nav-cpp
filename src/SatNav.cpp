@@ -2,8 +2,7 @@
 #include "SatNavRel.hpp"
 
 // Собирать полный путь либо здесь, либо в DataParser
-
-SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler) {
+SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
     bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
     if (is_fo) {
         true_states = DataParser::load_grace_fo_gnv_data(date, sat);
@@ -14,7 +13,7 @@ SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler
     }
 }
 
-SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler) {
+SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
     true_states = DataParser::load_swarm_nav_data(date, sat);
     raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }
@@ -22,17 +21,15 @@ SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
-                                   acceleration_measurements(sn.acceleration_measurements) {}
+                                   acceleration_measurements(sn.acceleration_measurements), logger("GPS") {}
 
 void SatNav::solve(char et, unsigned ti, unsigned tf) {
-    logger.log("Beginning to solve...");
+    logger.log("Starting GPS solving");
 
     error_type = et;
 
     unsigned t0 = raw_measurements_groupped[0].time;
-
     for (const auto& raw_mg : raw_measurements_groupped) {
-        
         if (ti > 0 || tf > 0) {
             if ((raw_mg.time - t0) < ti || (raw_mg.time - t0) >= tf) continue;
         }
@@ -94,7 +91,7 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {
    
     error_type = '0';
 
-    logger.log("Finished solving");
+    logger.log("Finished GPS solving");
 }
 
 bool SatNav::check_raw(const RawMeasurement& raw_m) {

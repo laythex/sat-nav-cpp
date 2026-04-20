@@ -4,14 +4,13 @@
 #include "PlotterRel.hpp"
 
 int main() {
-
-    // Выключен diff filtering и 
-
-    // Разобраться с дельтами
-    // все string через format
-    // PRN_ID в struct?
-    // Raw Measurement хранит C1C, L1C и т.д.
-    // Error type и failure type в enum
+    /*
+    TODO:
+    все string через format
+    PRN_ID в struct?
+    Raw Measurement хранит C1C, L1C и т.д.
+    Error type и failure type в enum
+    */
 
     // GPSHandler handler = GPSHandler("brdc3440.05n"); SatNav problem = SatNav("2005-12-10", GRACE_SATS::A, handler);
     // GPSHandler handler = GPSHandler("brdc3440.05n"); SatNav problem = SatNav("2005-12-10", GRACE_SATS::B, handler);
@@ -35,7 +34,7 @@ int main() {
     // plotter.plot_errors_pr(-10, 10);
     // plotter.plot_errors_norm(0, 10);
 
-    Date date = {2005, 12, 11};
+    Date date = {2005, 12, 9};
     GPSHandler handler = GPSHandler(date);
     SatNav problem1 = SatNav(date, GRACE_SATS::A, handler);
     SatNav problem2 = SatNav(date, GRACE_SATS::B, handler);
