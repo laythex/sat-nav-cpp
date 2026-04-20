@@ -92,7 +92,7 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
 
     err_avg /= static_cast<double>(err_cnt);
     logger.logv("Average error", err_avg);
-    std::cout << "Avg error: " << err_avg << std::endl;
+    std::cout << "Avg error: " << err_avg << ' ' << err_cnt << std::endl;
 
     logger.log("Finished solving");
 }
@@ -229,8 +229,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // Строим оценку вектора состояния путем прогноза
     std::vector<double> dx_est = estimate_dx();
     std::vector<double> x_est = dfs_prev.x + dx_est;
-    dx_est = coarse - dfs_prev.x; // модель разваливается
-    x_est = coarse;
+    // dx_est = coarse - dfs_prev.x; // модель разваливается
+    // x_est = coarse;
 
     dfs.x_est = x_est; // Запоминаем для следующей итерации
 
@@ -319,7 +319,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     // Сглаживание измерений
     for (size_t i = 0; i < n; ++i) {
-        xi_m_diff[i] = 1 / T_p * xi_m_diff[i] + (1 - 1 / T_p) * xi_m_diff[i + n];
+        xi_m_diff[i] = 1 / Tp * xi_m_diff[i] + (1 - 1 / Tp) * xi_m_diff[i + n];
     }
 
     double trace;

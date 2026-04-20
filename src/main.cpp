@@ -35,7 +35,7 @@ int main() {
     // plotter.plot_errors_pr(-10, 10);
     // plotter.plot_errors_norm(0, 10);
 
-    Date date = {2005, 12, 10};
+    Date date = {2005, 12, 11};
     GPSHandler handler = GPSHandler(date);
     SatNav problem1 = SatNav(date, GRACE_SATS::A, handler);
     SatNav problem2 = SatNav(date, GRACE_SATS::B, handler);
@@ -43,7 +43,7 @@ int main() {
     SatNavRel problem_rel(problem1, problem2);
     PlotterRel plotter(problem_rel);
 
-    double m = 0;
+    double m = 5;
     plotter.plot_errors_norm(0, m);
     plotter.plot_errors_proj(-m, m);
     plotter.plot_true_norm();
