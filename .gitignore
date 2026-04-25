@@ -1,5 +1,5 @@
 .vscode/
 build/
-results/
-plots/
 logs/
+plots/
+results/
