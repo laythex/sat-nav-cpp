@@ -60,7 +60,7 @@ private:
     const double C2 = -1.54572778016;
     const double CN0_constant = 3.01029995664;
 
-    const double GDOP0 = 5;
+    const double GDOP0 = 10;
     const double mask_angle = 10;
     
     const unsigned fadeout_threshold = 10;

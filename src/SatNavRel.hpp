@@ -31,6 +31,8 @@ public:
     SatNav& act;
 
 private:
+    enum SatType { PASSIVE, ACTIVE };
+
     void solve_separately(char et = '0', unsigned ti = 0, unsigned tf = 0);
 
     // Проверяем что с сырыми измерениями все ок
@@ -45,7 +47,8 @@ private:
     std::vector<double> estimate_dx();
     Matrix calculate_B1();
     double calculate_delta(const std::vector<double>& L, const std::vector<double>& dX, const std::vector<double>& V);
-    std::vector<double> get_coarse(unsigned time);
+
+    std::vector<double> get_coarse_position(SatType sat_type, unsigned time);
 
     std::vector<State> true_states;
     std::vector<SolutionState> solution_states;
@@ -71,7 +74,7 @@ private:
     const unsigned dt = 10;
     const double Tx = 10000;
     const double Tv = Tx / 1000;
-    const double Tp = 2;
+    const double Tp = 1;
     Matrix lambda = {{{Tx / (Tx + 1), 0, 0, 0, 0, 0}, {0, Tx / (Tx + 1), 0, 0, 0, 0}, {0, 0, Tx / (Tx + 1), 0, 0, 0},
                       {0, 0, 0, Tv / (Tv + 1), 0, 0}, {0, 0, 0, 0, Tv / (Tv + 1), 0}, {0, 0, 0, 0, 0, Tv / (Tv + 1)}}};
     Matrix E3 = identity(3);

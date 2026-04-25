@@ -21,7 +21,7 @@ SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler
 SatNav::SatNav(const SatNav& sn) : handler(sn.handler), 
                                    true_states(sn.true_states), 
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
-                                   acceleration_measurements(sn.acceleration_measurements), logger("GPS") {}
+                                   acceleration_measurements(sn.acceleration_measurements), logger("GPS") { }
 
 void SatNav::solve(char et, unsigned ti, unsigned tf) {
     logger.log("Starting GPS solving");

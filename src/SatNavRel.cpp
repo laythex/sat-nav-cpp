@@ -148,9 +148,11 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     DynamicFilterState dfs;
     dfs.time = time;
-  
-    std::vector<double> coarse = get_coarse(time);
-    dfs.pas_pos = pas.get_true_state_iterator(time)->position;
+    
+    std::vector<double> pas_pos = get_coarse_position(SatType::PASSIVE, time);
+    std::vector<double> act_pos = get_coarse_position(SatType::ACTIVE, time);
+    std::vector<double> coarse = act_pos - pas_pos;
+    dfs.pas_pos = pas_pos;
 
     // Проходим по всем присутствующим НКА
     for (const auto& ref_m : ref_mg.refined_measurements) {
@@ -259,8 +261,6 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // std::cout << get_true_state_iterator(time)->position << get_true_state_iterator(time)->position - get_true_state_iterator(time - dt)->position << std::endl;
     // std::cout << std::endl;
 
-    // throw std::runtime_error("haha");
-
     if (is_pure_modeling_mode) {
         dfs.x = x_est;
         dfs.dx = dx_est;
@@ -355,7 +355,8 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
     if (W.norm() > W_norm_threshold) {
         W = zero(6, 6);
-        dfs.x = coarse;
+        // dfs.x = coarse;
+        dfs.x = x_est;
         dfs.dx = dx_est;
 
         ++consecutive_model_steps;
@@ -454,8 +455,25 @@ double SatNavRel::calculate_delta(const std::vector<double>& L, const std::vecto
            VdX / c - VdX * VdX / (Ln * c * c) + VdX * VdX * VdX / (2 * Ln * Ln * c * c * c) - VdX * dXdX / (2 * Ln * Ln * c);
 }
 
-std::vector<double> SatNavRel::get_coarse(unsigned time) {
-    return act.get_true_state_iterator(time)->position - pas.get_true_state_iterator(time)->position;
+std::vector<double> SatNavRel::get_coarse_position(SatType sat_type, unsigned time) {
+    SatNav* sat;
+
+    switch (sat_type) {
+    case PASSIVE:
+        sat = &pas;
+        break;
+    case ACTIVE:
+        sat = &act;
+        break;
+    }
+
+    if (sat->get_solution_state_iterator(time)->is_solved) {
+        logger.log("Coarse found");
+        return sat->get_solution_state_iterator(time)->position;
+    } else {
+        logger.log("Coarse not found");
+        return sat->get_true_state_iterator(time)->position;
+    }
 }
 
 const std::vector<State>& SatNavRel::get_true_states() const {

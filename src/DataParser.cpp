@@ -1,6 +1,6 @@
 #include "DataParser.hpp"
 
-std::vector<State> DataParser::load_grace_fo_gnv_data(const Date& date, const GRACE_SATS& sat) {
+std::vector<State> DataParser::load_grace_fo_gnv_data(const Date& date, GRACE_SATS sat) {
     std::vector<State> true_states;
 
     std::string filename = grace_gnv_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_04.txt";
@@ -53,7 +53,7 @@ std::vector<State> DataParser::load_grace_fo_gnv_data(const Date& date, const GR
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const Date& date, const GRACE_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const Date& date, GRACE_SATS sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
     unsigned gps_time_current = 0;
@@ -161,7 +161,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_fo_gps_data(const Dat
     return raw_mgs;
 }
 
-std::vector<State> DataParser::load_grace_gnv_data(const Date& date, const GRACE_SATS& sat) {
+std::vector<State> DataParser::load_grace_gnv_data(const Date& date, GRACE_SATS sat) {
     std::vector<State> true_states;
 
     std::string filename = grace_gnv_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_02.dat";
@@ -213,7 +213,7 @@ std::vector<State> DataParser::load_grace_gnv_data(const Date& date, const GRACE
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& date, const GRACE_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& date, GRACE_SATS sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
     unsigned gps_time_current = 0;
@@ -297,7 +297,7 @@ std::vector<RawMeasurementGroupped> DataParser::load_grace_gps_data(const Date& 
     return raw_mgs;
 }
 
-std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const Date& date, const GRACE_SATS& sat) {
+std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const Date& date, GRACE_SATS sat) {
     std::vector<AccelerationMeasurement> acc_ms;
 
     std::string filename = grace_acc_dir + "GNV1B_" + date_to_grace_string(date) + "_" + satToChar(sat) + "_02.dat";
@@ -351,7 +351,7 @@ std::vector<AccelerationMeasurement> DataParser::load_grace_acc_data(const Date&
     return acc_ms;
 }
 
-std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM_SATS& sat) {
+std::vector<State> DataParser::load_swarm_nav_data(const Date& date, SWARM_SATS sat) {
     std::vector<State> true_states;
 
     std::string filename = swarm_nav_dir + "SW_OPER_GPS" + satToChar(sat) + "NAV_1B_" + date_to_swarm_string(date) + "T000000_" + 
@@ -402,7 +402,7 @@ std::vector<State> DataParser::load_swarm_nav_data(const Date& date, const SWARM
     return true_states;
 }
 
-std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const Date& date, const SWARM_SATS& sat) {
+std::vector<RawMeasurementGroupped> DataParser::load_swarm_gps_data(const Date& date, SWARM_SATS sat) {
     std::vector<RawMeasurementGroupped> raw_mgs;
     std::vector<RawMeasurement> raw_ms(32);
 
