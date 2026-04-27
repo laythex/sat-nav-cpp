@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <iostream>
 
+enum class Axis {X, Y, Z};
+
 class Matrix {
 public:
     Matrix(std::vector<std::vector<double>> data);
@@ -62,7 +64,7 @@ std::vector<double> normalize(const std::vector<double>& a);
 
 Matrix zero(size_t r, size_t c);
 Matrix identity(size_t r);
-Matrix rotation(double angle, char axis);
+Matrix rotation(double angle, Axis axis);
 
 double dist_to_bounds(double x, double lo, double hi);
 

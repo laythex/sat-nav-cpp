@@ -141,7 +141,7 @@ RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
 
     if (error_type != 's') {
         double phi = earth_rotation_rate * dt;
-        Matrix rot = rotation(-phi, 'z');
+        Matrix rot = rotation(-phi, Axis::Z);
         gps_position = rot * gps_position;
     }
 

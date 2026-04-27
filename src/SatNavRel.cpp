@@ -135,9 +135,18 @@ RefinedMeasurement SatNavRel::refine_raw(const RawMeasurement& raw_m_pas, const 
     double pseudorange_delta = raw_m_pas.L1_range - raw_m_act.L1_range;
     double carrier_phase_delta = raw_m_pas.L1_phase - raw_m_act.L1_phase;
 
+    double delay = raw_m_pas.L1_range / c;
+    Matrix R = (E3 + Omega * delay);
+
     State gs = pas.handler.get_state(raw_m_pas.prn_id, raw_m_pas.time);
 
-    return {true, raw_m_pas.time, raw_m_pas.prn_id, pseudorange_delta, carrier_phase_delta, gs.position, gs.velocity};
+    return {true, 
+            raw_m_pas.time, 
+            raw_m_pas.prn_id, 
+            pseudorange_delta, 
+            carrier_phase_delta, 
+            R * gs.position, 
+            R * gs.velocity};
 }
 
 SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& ref_mg) {
@@ -459,10 +468,10 @@ std::vector<double> SatNavRel::get_coarse_position(SatType sat_type, unsigned ti
     SatNav* sat;
 
     switch (sat_type) {
-    case PASSIVE:
+    case SatType::PASSIVE:
         sat = &pas;
         break;
-    case ACTIVE:
+    case SatType::ACTIVE:
         sat = &act;
         break;
     }

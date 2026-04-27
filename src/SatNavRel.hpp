@@ -31,7 +31,7 @@ public:
     SatNav& act;
 
 private:
-    enum SatType { PASSIVE, ACTIVE };
+    enum class SatType { PASSIVE, ACTIVE };
 
     void solve_separately(char et = '0', unsigned ti = 0, unsigned tf = 0);
 

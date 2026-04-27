@@ -339,26 +339,26 @@ Matrix identity(size_t r) {
     return res;
 }
 
-Matrix rotation(double angle, char axis) {
+Matrix rotation(double angle, Axis axis) {
     Matrix res = identity(3);
 
     double c = cos(angle);
     double s = sin(angle);
 
     switch(axis) {
-        case 'x':
+        case Axis::X:
             res.at(1, 1) = c;
             res.at(2, 2) = c;
             res.at(1, 2) = -s;
             res.at(2, 1) = s;
             break;
-        case 'y':
+        case Axis::Y:
             res.at(0, 0) = c;
             res.at(2, 2) = c;
             res.at(0, 2) = s;
             res.at(2, 0) = -s;
             break;
-        case 'z':
+        case Axis::Z:
             res.at(0, 0) = c;
             res.at(1, 1) = c;
             res.at(0, 1) = -s;
