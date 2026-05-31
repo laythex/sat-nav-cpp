@@ -14,7 +14,7 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
     file << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 
@@ -42,7 +42,7 @@ void PlotterRel::plot_errors_proj(double ymin, double ymax) {
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 

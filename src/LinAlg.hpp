@@ -26,7 +26,7 @@ public:
     Matrix operator-() const;
     Matrix operator-(const Matrix& other) const;
     Matrix operator*(double x) const;
-    std::vector<double> operator*(const std::vector<double>& a) const;
+    std::vector<double> operator*(const std::vector<double>& v) const;
     Matrix operator*(const Matrix& other) const;
     Matrix operator/(double x) const;
 
@@ -40,27 +40,28 @@ private:
     std::vector<std::vector<double>> data_;
 };
 
-std::ostream& operator<<(std::ostream& os, const Matrix& matrix);
-std::ostream& operator<<(std::ostream& os, const std::vector<double>& a);
+std::ostream& operator<<(std::ostream& os, const Matrix& m);
+std::ostream& operator<<(std::ostream& os, const std::vector<double>& v);
 std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a);
 
-std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b);
-std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b);
-std::vector<double> operator*(const std::vector<double>& a, double x);
-std::vector<double> operator*(double x, const std::vector<double>& a);
-double operator*(const std::vector<double>& a, const std::vector<double>& b);
-std::vector<double> operator/(const std::vector<double>& a, double x);
+std::vector<double> operator+(const std::vector<double>& v1, const std::vector<double>& v2);
+std::vector<double> operator-(const std::vector<double>& v1, const std::vector<double>& v2);
+std::vector<double> operator*(const std::vector<double>& v1, double x);
+std::vector<double> operator*(double x, const std::vector<double>& v);
+double operator*(const std::vector<double>& v1, const std::vector<double>& v2);
+std::vector<double> operator/(const std::vector<double>& v, double x);
 
-Matrix operator*(double x, const Matrix& matrix);
+Matrix operator*(double x, const Matrix& m);
 
-double dot(const std::vector<double>& a, const std::vector<double>& b);
-Matrix tensor(const std::vector<double>& a, const std::vector<double>& b);
+double dot(const std::vector<double>& v1, const std::vector<double>& v2);
+Matrix tensor(const std::vector<double>& v1, const std::vector<double>& v2);
 
-double abs(const std::vector<double>& a);
-double abs(const Matrix& matrix);
-double angle_between(const std::vector<double>& a, const std::vector<double>& b);
+double abs(const double d);
+double abs(const std::vector<double>& v);
+double abs(const Matrix& m);
+double angle(const std::vector<double>& v1, const std::vector<double>& v2);
 
-std::vector<double> normalize(const std::vector<double>& a);
+std::vector<double> normalize(const std::vector<double>& v);
 
 Matrix zero(size_t r, size_t c);
 Matrix identity(size_t r);
@@ -68,7 +69,7 @@ Matrix rotation(double angle, Axis axis);
 
 double dist_to_bounds(double x, double lo, double hi);
 
-size_t find_max_abs(const std::vector<double>& a);
+size_t find_max_abs(const std::vector<double>& v);
 
 template <typename T>
 std::vector<T> mask(const std::vector<T>& a, const std::vector<bool> m);

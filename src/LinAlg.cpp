@@ -2,7 +2,7 @@
 
 Matrix::Matrix(std::vector<std::vector<double>> data) : data_(data) {
     rows_ = data.size();
-    cols_ = data[0].size();
+    cols_ = rows_ > 0 ? data[0].size() : 0;
 }
 
 Matrix::Matrix(size_t n, size_t m, double x) : rows_(n), cols_(m) {
@@ -218,10 +218,10 @@ double Matrix::norm() const {
     return res;
 }
 
-std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
-    for (size_t i = 0; i < matrix.get_rows(); ++i) {
-        for (size_t j = 0; j < matrix.get_cols(); ++j) {
-            double x = std::abs(matrix(i, j)) > 1e-13 ? matrix(i, j) : 0;
+std::ostream& operator<<(std::ostream& os, const Matrix& m) {
+    for (size_t i = 0; i < m.get_rows(); ++i) {
+        for (size_t j = 0; j < m.get_cols(); ++j) {
+            double x = std::abs(m(i, j)) > 1e-13 ? m(i, j) : 0;
             os << x << " ";
         }
         os << '\n';
@@ -230,99 +230,102 @@ std::ostream& operator<<(std::ostream& os, const Matrix& matrix) {
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::vector<double>& a) {
-    for (size_t i = 0; i < a.size(); ++i) {
-        os << a[i] << " ";
+std::ostream& operator<<(std::ostream& os, const std::vector<double>& v) {
+    for (size_t i = 0; i < v.size(); ++i) {
+        os << v[i] << " ";
     }
 
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& a) {
-    for (size_t i = 0; i < a.size(); ++i) {
-        double x = a[i];
-        os << x << " ";
+std::ostream& operator<<(std::ostream& os, const std::vector<unsigned>& v) {
+    for (size_t i = 0; i < v.size(); ++i) {
+        os << static_cast<double>(v[i]) << " ";
     }
 
     return os;
 }
 
-std::vector<double> operator+(const std::vector<double>& a, const std::vector<double>& b) {
-    std::vector<double> res(a.size());
+std::vector<double> operator+(const std::vector<double>& v1, const std::vector<double>& v2) {
+    std::vector<double> res(v1.size());
 
-    for (size_t i = 0; i < a.size(); ++i) {
-        res[i] = a[i] + b[i];
+    for (size_t i = 0; i < v1.size(); ++i) {
+        res[i] = v1[i] + v2[i];
     }
 
     return res;
 }
 
-std::vector<double> operator-(const std::vector<double>& a, const std::vector<double>& b) {
-    return a + b * (-1.0);
+std::vector<double> operator-(const std::vector<double>& v1, const std::vector<double>& v2) {
+    return v1 + v2 * (-1.0);
 }
 
-std::vector<double> operator*(const std::vector<double>& a, double x) {
-    std::vector<double> res(a.size());
+std::vector<double> operator*(const std::vector<double>& v, double d) {
+    std::vector<double> res(v.size());
 
-    for (size_t i = 0; i < a.size(); ++i) {
-        res[i] = a[i] * x;
+    for (size_t i = 0; i < v.size(); ++i) {
+        res[i] = v[i] * d;
     }
 
     return res;
 }
 
-std::vector<double> operator*(double x, const std::vector<double>& a) {
-    return a * x;
+std::vector<double> operator*(double d, const std::vector<double>& v) {
+    return v * d;
 }
 
-double operator*(const std::vector<double>& a, const std::vector<double>& b) {
-    return dot(a, b);
+double operator*(const std::vector<double>& v1, const std::vector<double>& v2) {
+    return dot(v1, v2);
 }
 
-std::vector<double> operator/(const std::vector<double>& a, double x) {
-    return a * (1.0 / x);
+std::vector<double> operator/(const std::vector<double>& v, double d) {
+    return v * (1.0 / d);
 }
 
-Matrix operator*(double x, const Matrix& matrix) {
-    return matrix * x;
+Matrix operator*(double d, const Matrix& m) {
+    return m * d;
 }
 
-double dot(const std::vector<double>& a, const std::vector<double>& b) {
+double dot(const std::vector<double>& v1, const std::vector<double>& v2) {
     double res = 0;
 
-    for (size_t i = 0; i < a.size(); ++i) {
-        res += a[i] * b[i];
+    for (size_t i = 0; i < v1.size(); ++i) {
+        res += v1[i] * v2[i];
     }
 
     return res;
 }
 
-Matrix tensor(const std::vector<double>& a, const std::vector<double>& b) {
-    Matrix res(a.size(), b.size());
+Matrix tensor(const std::vector<double>& v1, const std::vector<double>& v2) {
+    Matrix res(v1.size(), v2.size());
 
-    for (size_t i = 0; i < a.size(); ++i) {
-        for (size_t j = 0; j < b.size(); ++j) {
-            res.at(i, j) = a[i] * b[j];
+    for (size_t i = 0; i < v1.size(); ++i) {
+        for (size_t j = 0; j < v2.size(); ++j) {
+            res.at(i, j) = v1[i] * v2[j];
         }
     }
 
     return res;
 }
 
-double abs(const std::vector<double>& a) {
-    return sqrt(dot(a, a));
+double abs(double d) {
+    return std::abs(d);
 }
 
-double abs(const Matrix& matrix) {
-    return matrix.norm();
+double abs(const std::vector<double>& v) {
+    return sqrt(dot(v, v));
 }
 
-double angle_between(const std::vector<double>& a, const std::vector<double>& b) {
-    return acos(dot(a, b) / abs(a) / abs(b));
+double abs(const Matrix& m) {
+    return m.norm();
 }
 
-std::vector<double> normalize(const std::vector<double>& a) {
-    return a / abs(a);
+double angle(const std::vector<double>& v1, const std::vector<double>& v2) {
+    return acos(dot(v1, v2) / abs(v1) / abs(v2));
+}
+
+std::vector<double> normalize(const std::vector<double>& v) {
+    return v / abs(v);
 }
 
 Matrix zero(size_t r, size_t c) {

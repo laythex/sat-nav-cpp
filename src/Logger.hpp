@@ -4,6 +4,8 @@
 #include <format>
 #include <fstream>
 
+#include "Structures.hpp"
+
 class Logger {
 public:
     Logger(const std::string& filename);
@@ -19,6 +21,8 @@ public:
     void logv(const std::string& desc, size_t val, char end = '\n');
     void logv(const std::string& desc, int val, char end = '\n');
     void logv(const std::string& desc, unsigned val, char end = '\n');
+    void logv(const std::string& desc, MeasurementStatus val, char end = '\n');
+    void logv(const std::string& desc, SolutionStatus val, char end = '\n');
 
 private:
     std::ofstream file;

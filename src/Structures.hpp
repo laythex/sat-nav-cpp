@@ -2,12 +2,45 @@
 
 #include <vector>
 
+enum class GRACE : char { A = 'A', B = 'B', C = 'C', D = 'D' };
+
+enum class SWARM : char { A = 'A', B = 'B', C = 'C' };
+
+enum class MeasurementStatus {
+    DEFAULT,
+    OK,
+    NOT_PRESENT,
+    QUALITY_FLAG,
+    CN0,
+    FADING,
+    COUNT
+};
+
+enum class SolutionStatus {
+    DEFAULT,
+    OK,
+    SINGULAR_B1,
+    HIGH_GDOP,
+    COUNT
+};
+
+enum class IntendedError {
+    NONE,
+    QUALITY_FLAG,
+    CN0,
+    NEW,
+    LOW,
+    GPS_CLOCK,
+    IONOSPHERIC,
+    RELATIVISTIC,
+    SAGNAC,
+    HATCH_FILTER
+};
+
 struct Date {
     unsigned year;
     unsigned month;
     unsigned day;
-
-    Date(unsigned year, unsigned month, unsigned day);
 };
 
 struct Ephemeris {
@@ -20,135 +53,127 @@ struct Ephemeris {
 };
 
 struct State {
-    unsigned time;
-    std::vector<double> position;
-    std::vector<double> velocity;
-
-    State();
-    State(unsigned time, 
-          const std::vector<double>& position,
-          const std::vector<double>& velocity);
+    unsigned time = 0;
+    std::vector<double> position = std::vector<double>(3, 0.0);
+    std::vector<double> velocity = std::vector<double>(3, 0.0);
 };
 
 struct SolutionState : State {
-    bool is_solved;
-    char failure_type;
-    double GDOP;
-
-    SolutionState();
-    SolutionState(unsigned time, 
-                  const std::vector<double>& position,
-                  const std::vector<double>& velocity,
-                  bool is_solved, char failure_type, double GDOP);
+    SolutionStatus status = SolutionStatus::DEFAULT;
+    double GDOP = 0.0;
 };
 
 struct RawMeasurement {
-    bool is_present;
-    unsigned time;
-    unsigned prn_id;
-    double L1_range, L2_range;
-    double L1_phase, L2_phase;
-    double L1_CN0, L2_CN0;
-    unsigned qualflg;
-
-    RawMeasurement();
-    RawMeasurement(bool is_present, 
-                   unsigned time, unsigned prn_id,
-                   double L1_range, double L2_range,
-                   double L1_phase, double L2_phase,
-                   double L1_CN0, double L2_CN0,
-                   unsigned qualflg);
+    bool is_present = false;
+    unsigned time = 0;
+    unsigned prn_id = 0;
+    double L1_range = 0.0;
+    double L2_range = 0.0;
+    double L1_phase = 0.0;
+    double L2_phase = 0.0;
+    double L1_CN0 = 0.0;
+    double L2_CN0 = 0.0;
+    unsigned qualflg = 0;
 };
 
 struct RefinedMeasurement {
-    bool is_present;
-    unsigned time;
-    unsigned prn_id;
-    double pseudorange;
-    double carrier_phase;
-    std::vector<double> gps_position;
-    std::vector<double> gps_velocity;
-
-    RefinedMeasurement();
-    RefinedMeasurement(bool is_present,
-                       unsigned time, unsigned prn_id, double pseudorange, double carrier_phase,
-                       const std::vector<double>& gps_position, const std::vector<double>& gps_velocity);
+    MeasurementStatus status = MeasurementStatus::DEFAULT;
+    unsigned prn_id = 0;
+    unsigned toa_ASN = 0;
+    double tot = 0;
+    double pseudorange = 0.0;
+    double carrier_phase = 0.0;
+    std::vector<double> gps_position = std::vector<double>(3, 0.0);
+    std::vector<double> gps_velocity = std::vector<double>(3, 0.0);
 };
 
 struct RawMeasurementGroupped {
-    unsigned time;
-    std::vector<RawMeasurement> raw_measurements;
-
-    RawMeasurementGroupped();
-    RawMeasurementGroupped(unsigned time,
-                           const std::vector<RawMeasurement>& raw_measurements);
+    unsigned time = 0;
+    std::vector<RawMeasurement> raw_measurements = std::vector<RawMeasurement>(32);
 };
 
 struct RefinedMeasurementGroupped {
-    unsigned time;
-    std::vector<RefinedMeasurement> refined_measurements;
-
-    RefinedMeasurementGroupped();
-    RefinedMeasurementGroupped(unsigned time,
-                               const std::vector<RefinedMeasurement>& refined_measurements);
+    unsigned time = 0;
+    std::vector<RefinedMeasurement> refined_measurements = std::vector<RefinedMeasurement>(32);
 };
 
-// Используется в алгоритме динамической фильтрации задачи поиска вектора относительного состояния
 struct DynamicFilterState {
-    unsigned time;
-    std::vector<double> x;
-    std::vector<double> dx;
-    std::vector<double> pas_pos;
-    std::vector<double> d_pas_pos;
-    std::vector<bool> mask;
-    std::vector<double> xi_m_1;
-    std::vector<double> xi_m_2;
-    std::vector<std::vector<double>> C_rows;
-    std::vector<double> x_est;
-
-    DynamicFilterState();
-    DynamicFilterState(unsigned time, 
-                       const std::vector<double>& x, const std::vector<double>& dx,
-                       const std::vector<double>& pas_pos, const std::vector<double>& d_pas_pos,
-                       const std::vector<bool>& mask, const std::vector<double>& xi_m_1, const std::vector<double>& xi_m_2,
-                       const std::vector<std::vector<double>>& C_rows, const std::vector<double>& x_est);
+    unsigned time = 0;
+    std::vector<double> x = std::vector<double>(3, 0.0);
+    std::vector<double> dx = std::vector<double>(3, 0.0);
+    std::vector<double> pas_pos = std::vector<double>(3, 0.0);
+    std::vector<double> d_pas_pos = std::vector<double>(3, 0.0);
+    std::vector<bool> mask = std::vector<bool>(32, false);
+    std::vector<double> xi_m_1 = std::vector<double>(3, 0.0);
+    std::vector<double> xi_m_2 = std::vector<double>(3, 0.0);
+    std::vector<std::vector<double>> C_rows = std::vector<std::vector<double>>(32);
+    std::vector<double> x_est = std::vector<double>(3, 0.0);
 };
 
 struct AccelerationMeasurement {
-    unsigned time;
-    std::vector<double> linear_acceleration;
-    std::vector<double> angular_acceleration;
-
-    AccelerationMeasurement();
-    AccelerationMeasurement(unsigned time,
-                            const std::vector<double>& linear_acceleration,
-                            const std::vector<double>& angular_acceleration);
+    unsigned time = 0;
+    std::vector<double> linear_acceleration = std::vector<double>(3, 0.0);
+    std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
 };
 
-enum class GRACE_SATS {
-    A, B, C, D
-};
-
-enum class SWARM_SATS {
-    A, B, C
-};
-
-constexpr char satToChar(GRACE_SATS sat) {
-    switch (sat) {
-        case GRACE_SATS::A:   return 'A';
-        case GRACE_SATS::B:   return 'B';
-        case GRACE_SATS::C:   return 'C';
-        case GRACE_SATS::D:   return 'D';
-        default: return '0';
-    }
+constexpr char to_char(GRACE sat) {
+    return static_cast<char>(sat);
 }
 
-constexpr char satToChar(SWARM_SATS sat) {
-    switch (sat) {
-        case SWARM_SATS::A:   return 'A';
-        case SWARM_SATS::B:   return 'B';
-        case SWARM_SATS::C:   return 'C';
-        default: return '0';
-    }
+constexpr char to_char(SWARM sat) {
+    return static_cast<char>(sat);
 }
 
+constexpr std::string to_string(MeasurementStatus status) {
+    constexpr const char* messages[] = {
+        "Status not assigned",
+        "OK",
+        "Measurement is not present",
+        "Quality flag is bad",
+        "CN0 is bad",
+        "Satellite is fading"
+    };
+    return messages[static_cast<int>(status)];
+}
+
+constexpr std::string to_string(SolutionStatus status) {
+    constexpr const char* messages[] = {
+        "Status not assigned",
+        "OK",
+        "Matrix B1 is singular",
+        "GDOP is too high"
+    };
+    return messages[static_cast<int>(status)];
+}
+
+constexpr std::string to_filename(IntendedError status) {
+    constexpr const char* messages[] = {
+        "none",
+        "qualflg",
+        "cn0",
+        "new",
+        "low",
+        "gps-clock",
+        "ionophere",
+        "relativity",
+        "sagnac",
+        "hatch",
+    };
+    return messages[static_cast<int>(status)];
+}
+
+constexpr std::string to_title(IntendedError status) {
+    constexpr const char* messages[] = {
+        "none",
+        "признак качества",
+        "отношение несущей к плотности шума",
+        "новые НКА",
+        "низкие НКА",
+        "ошибка часов НКА",
+        "ионосферный вклад",
+        "релятивистская поправка",
+        "эффект Саньяка",
+        "хатч-фильтр",
+    };
+    return messages[static_cast<int>(status)];
+}

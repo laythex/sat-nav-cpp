@@ -14,15 +14,15 @@
 
 class DataParser {
 public:
-    static std::vector<State> load_grace_fo_gnv_data(const Date& date, GRACE_SATS sat);
-    static std::vector<RawMeasurementGroupped> load_grace_fo_gps_data(const Date& date, GRACE_SATS sat);
+    static std::vector<State> load_grace_fo_gnv_data(const Date& date, GRACE sat);
+    static std::vector<RawMeasurementGroupped> load_grace_fo_gps_data(const Date& date, GRACE sat);
 
-    static std::vector<State> load_grace_gnv_data(const Date& date, GRACE_SATS sat);
-    static std::vector<RawMeasurementGroupped> load_grace_gps_data(const Date& date, GRACE_SATS sat);
-    static std::vector<AccelerationMeasurement> load_grace_acc_data(const Date& date, GRACE_SATS sat);
+    static std::vector<State> load_grace_gnv_data(const Date& date, GRACE sat);
+    static std::vector<RawMeasurementGroupped> load_grace_gps_data(const Date& date, GRACE sat);
+    static std::vector<AccelerationMeasurement> load_grace_acc_data(const Date& date, GRACE sat);
     
-    static std::vector<State> load_swarm_nav_data(const Date& date, SWARM_SATS sat);
-    static std::vector<RawMeasurementGroupped> load_swarm_gps_data(const Date& date, SWARM_SATS sat);
+    static std::vector<State> load_swarm_nav_data(const Date& date, SWARM sat);
+    static std::vector<RawMeasurementGroupped> load_swarm_gps_data(const Date& date, SWARM sat);
 
     static std::vector<std::vector<Ephemeris>> load_brdc_data(const Date& date);
 
@@ -34,7 +34,8 @@ private:
     static std::string date_to_swarm_string(const Date& date);
     static std::string date_to_gps_string(const Date& date);
 
-    static unsigned get_day_of_the_year(unsigned month, unsigned day);
+    static bool is_leap_year(unsigned year);
+    static unsigned get_day_of_the_year(const Date& date);
 
     static double convert_SNR_to_CN0(double SNR);
 

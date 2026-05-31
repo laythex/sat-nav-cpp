@@ -2,8 +2,8 @@
 #include "SatNavRel.hpp"
 
 // Собирать полный путь либо здесь, либо в DataParser
-SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
-    bool is_fo = sat == GRACE_SATS::C || sat == GRACE_SATS::D;
+SatNav::SatNav(const Date& date, const GRACE sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
+    bool is_fo = sat == GRACE::C || sat == GRACE::D;
     if (is_fo) {
         true_states = DataParser::load_grace_fo_gnv_data(date, sat);
         raw_measurements_groupped = DataParser::load_grace_fo_gps_data(date, sat);
@@ -13,7 +13,7 @@ SatNav::SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler
     }
 }
 
-SatNav::SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
+SatNav::SatNav(const Date& date, const SWARM sat, const GPSHandler& handler) : handler(handler), logger("GPS") {
     true_states = DataParser::load_swarm_nav_data(date, sat);
     raw_measurements_groupped = DataParser::load_swarm_gps_data(date, sat);
 }
@@ -23,10 +23,10 @@ SatNav::SatNav(const SatNav& sn) : handler(sn.handler),
                                    raw_measurements_groupped(sn.raw_measurements_groupped),
                                    acceleration_measurements(sn.acceleration_measurements), logger("GPS") { }
 
-void SatNav::solve(char et, unsigned ti, unsigned tf) {
+void SatNav::solve(unsigned ti, unsigned tf, IntendedError error) {
     logger.log("Starting GPS solving");
 
-    error_type = et;
+    this->error = error;
 
     unsigned t0 = raw_measurements_groupped[0].time;
     for (const auto& raw_mg : raw_measurements_groupped) {
@@ -40,13 +40,13 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {
         for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
             unsigned prn_index = prn_id - 1;
 
-            if (!check_raw(raw_mg.raw_measurements[prn_index])) continue;
-
-            logger.logv("Refining", prn_id);
-
             RefinedMeasurement ref_m = refine_raw(raw_mg.raw_measurements[prn_index]);
 
-            if (error_type != 'H') {
+            if (ref_m.status != MeasurementStatus::NOT_PRESENT) {
+                logger.log("Refining at " + std::to_string(prn_id) + ": " + to_string(ref_m.status));
+            }
+
+            if (ref_m.status == MeasurementStatus::OK) {
                 ref_m = hatch_filter(ref_m);
             }
 
@@ -58,22 +58,20 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {
 
         SolutionState solution = calculate_solution(ref_mg);
 
-        if (error_type != 'L') {
-            if (solution.is_solved) {
-                std::vector<unsigned> low = check_low(solution, ref_mg);
-                if (low.size() > 0) {
-                    for (unsigned prn_id : low) {
-                        unsigned prn_index = prn_id - 1;
-                        ref_mg.refined_measurements[prn_index].is_present = false;
-                    }
-                    solution = calculate_solution(ref_mg);
-                }
-            }
-        }
+        // if (solution.status == SolutionStatus::OK) {
+        //     std::vector<unsigned> low = check_low(solution, ref_mg);
+        //     if (low.size() > 0) {
+        //         for (unsigned prn_id : low) {
+        //             unsigned prn_index = prn_id - 1;
+        //             ref_mg.refined_measurements[prn_index].status = MeasurementStatus::FADING;
+        //         }
+        //         solution = calculate_solution(ref_mg);
+        //     }
+        // }
 
-        logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
+        logger.logv("Solution status", solution.status);
 
-        if (solution.is_solved) {
+        if (solution.status == SolutionStatus::OK) {
             auto ts = get_true_state_iterator(raw_mg.time);
             double error = abs(solution.position - ts->position);
 
@@ -84,212 +82,184 @@ void SatNav::solve(char et, unsigned ti, unsigned tf) {
             if (error > 10) logger.log("HIGH ERROR");
         }
 
-        logger.log("");
+        logger.lnbr();
 
         solution_states.push_back(solution);
     }
    
-    error_type = '0';
+    // error_type = '0';
 
     logger.log("Finished GPS solving");
 }
 
-bool SatNav::check_raw(const RawMeasurement& raw_m) {
+MeasurementStatus SatNav::check_raw(const RawMeasurement& raw_m) {
     if (!raw_m.is_present) {
-        return false;
+        return MeasurementStatus::NOT_PRESENT;
     }
 
     if (raw_m.qualflg != 0) {
-        return false;
+        return MeasurementStatus::QUALITY_FLAG;
     }
 
-    if (error_type != 'S') {
-        double min_CN0 = std::min(raw_m.L1_CN0, raw_m.L2_CN0);
-        double max_CN0 = std::max(raw_m.L1_CN0, raw_m.L2_CN0);
-
-        if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
-            logger.log("Bad CN0: " + std::to_string(raw_m.prn_id) + ", " + std::to_string(min_CN0) + ", " + std::to_string(max_CN0));
-            return false;
-        }
+    double min_CN0 = std::min(raw_m.L1_CN0, raw_m.L2_CN0);
+    double max_CN0 = std::max(raw_m.L1_CN0, raw_m.L2_CN0);
+    if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
+        return MeasurementStatus::CN0;
     }
 
-    if (error_type != 'F') {
-        if (check_fading(raw_m)) {
-            logger.logv("Fading", raw_m.prn_id);
-            return false;
-        }
-    }
+    // if (check_fading(raw_m)) {
+    //     logger.logv("Fading at ", raw_m.prn_id);
+    //     return MeasurementStatus::FADING;
+    // }
 
-    return true;
+    return MeasurementStatus::OK;
 }
 
 RefinedMeasurement SatNav::refine_raw(const RawMeasurement& raw_m) {
-
-    double pseudorange = raw_m.L1_range * C1 + raw_m.L2_range * C2;
-    double carrier_phase = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
-
-    double clock_error = handler.get_clock_error(raw_m.prn_id, raw_m.time);
-    double relativistic_error = handler.get_relativistic_error(raw_m.prn_id, raw_m.time);
-
-    pseudorange += clock_error * c + relativistic_error * c;
-    double dt = pseudorange / c;
-
-    State gps_state = handler.get_state(raw_m.prn_id, raw_m.time - dt);
-
-    std::vector<double> gps_position = gps_state.position;
-    std::vector<double> gps_velocity = gps_state.velocity;
-
-    if (error_type != 's') {
-        double phi = earth_rotation_rate * dt;
-        Matrix rot = rotation(-phi, Axis::Z);
-        gps_position = rot * gps_position;
+    MeasurementStatus status = check_raw(raw_m);
+    if (status != MeasurementStatus::OK) {
+        return {.status = status};
     }
 
-    return {true, raw_m.time, raw_m.prn_id, pseudorange, carrier_phase, gps_position, gps_velocity};
+    unsigned toa_ASN = raw_m.time;
+
+    double clock_error = handler.get_clock_error(raw_m.prn_id, toa_ASN);
+    double relativistic_error = handler.get_relativistic_error(raw_m.prn_id, toa_ASN);
+
+    double tot = toa_ASN - raw_m.L1_range / c - clock_error;
+
+    double pr_ionofree = raw_m.L1_range * C1 + raw_m.L2_range * C2;
+    double cp_ionofree = raw_m.L1_phase * C1 + raw_m.L2_phase * C2;
+
+    double pr_refined = pr_ionofree + (clock_error - relativistic_error) * c;
+
+    State gps_state = handler.get_state(raw_m.prn_id, tot);
+    std::vector<double> gps_position = gps_state.position;
+    std::vector<double> gps_velocity = gps_state.velocity;
     
+    return {status, raw_m.prn_id, toa_ASN, tot, pr_refined, cp_ionofree, gps_position, gps_velocity};    
 }
 
-    /*  Эффект                     t       t * v    t * c   
-    (1) Задержка распространения - 80 мс - 240 км -  ---
-    (2) Ошибка часов НКА         - 3 мс  - 10 м   - 1000 км
-    (3) Релятивизм               - 20 нс - 60 мкм - 6 м
-
-    При расчете ошибки часов НКА учитываем только (1)
-    При расчете эфемерид учитываем (1), (2)
-    При корректировке псевдодальности учитываем (1), (2), (3) */
-
-SolutionState SatNav::calculate_solution(const RefinedMeasurementGroupped& ref_mg) const {
+SolutionState SatNav::calculate_solution(RefinedMeasurementGroupped& ref_mg) const {
     SolutionState solution;
     solution.time = ref_mg.time;
 
-    std::vector<double> PR;
-    std::vector<std::vector<double>> X;
-    size_t n = 0;
-
-    for (const auto& ref_m : ref_mg.refined_measurements) {
-        if (ref_m.is_present) {
-            PR.push_back(ref_m.pseudorange);
-            X.push_back(ref_m.gps_position);
-            ++n;
-        }
-    }
-
-    double eps = 0.5;
-    std::vector<double> x = {0.0, 0.0, 0.0};
-    double c_tau = 0.0;
-
-    std::vector<double> U(n);
-    Matrix B(n, 4);
+    double dt_ASN = 0.0;
+    std::vector<double> X(3, 0.0);
 
     while (true) {
-        for (size_t i = 0; i < n; ++i) {
-            std::vector<double> DX = X[i] - x;
-            double D = abs(DX);
+        std::vector<double> U(0);
+        std::vector<std::vector<double>> B_v;
 
-            DX = DX / D;
-            DX.push_back(1.0);
+        for (const auto& ref_m : ref_mg.refined_measurements) {
+            if (ref_m.status != MeasurementStatus::OK) continue;
 
-            U[i] = PR[i] - D;
-            B.at(i) = DX;
+            std::vector<double> X_i = (E3 + Omega * (ref_m.toa_ASN - ref_m.tot - dt_ASN)) * ref_m.gps_position;
+
+            std::vector<double> a = normalize(X_i - X);
+            double b = abs(X_i - X);
+
+            U.push_back(ref_m.pseudorange - b);
+            B_v.push_back({a[0], a[1], a[2], 1});
         }
 
+        Matrix B(B_v);
         Matrix B1(4, 4);
         try {
             B1 = (B.transpose() * B).inverse();
         } catch (const std::runtime_error&) {
-            solution.is_solved = false;
-            solution.failure_type = 'g';
+            solution.status = SolutionStatus::SINGULAR_B1;
             return solution;
         }
 
         double GDOP = sqrt(B1.trace());
         solution.GDOP = GDOP;
 
-        if (GDOP > GDOP0) {
-            solution.is_solved = false;
-            solution.failure_type = 'G';
+        if (GDOP > GDOP0 || GDOP == 0) {
+            solution.status = SolutionStatus::HIGH_GDOP;
             return solution;
         }
 
         std::vector<double> dX = -B1 * B.transpose() * U;
+        std::vector<double> dX_X = {dX[0], dX[1], dX[2]};
+        double dX_dt_ASN = dX[3] / c;
 
-        std::vector<double> dX_x = std::vector<double>(dX.begin(), dX.begin() + 3);
-        double dX_c_tau = dX[3];
-
-        double delta = abs(dX_x) + std::abs(dX_c_tau - c_tau);       
-        if (delta < eps) {
+        double delta = abs(dX_X) + abs(dX_dt_ASN - dt_ASN) * c;
+        if (delta < solution_tolerance) {
             break;
         }
 
-        x = x + dX_x;
-        c_tau = dX_c_tau;
+        X = X + dX_X;
+        dt_ASN = dX_dt_ASN;
     }
 
-    solution.position = x;
-    solution.is_solved = true;
+    solution.position = X;
+    solution.status = SolutionStatus::OK;
 
     return solution;
 }
 
-bool SatNav::check_fading(const RawMeasurement& raw_m) {
-    unsigned t0 = raw_m.time;
-    unsigned prn_index = raw_m.prn_id - 1;
+// bool SatNav::check_fading(const RawMeasurement& raw_m) {
+//     unsigned t0 = raw_m.time;
+//     unsigned prn_index = raw_m.prn_id - 1;
     
-    auto raw_mg_it = get_raw_measurement_groupped_iterator(t0);
+//     auto raw_mg_it = get_raw_measurement_groupped_iterator(t0);
 
-    auto it_bwd = raw_mg_it;
-    while(true) {
-        if (it_bwd == raw_measurements_groupped.begin()) return true;
-        it_bwd--;
+//     auto it_bwd = raw_mg_it;
+//     while(true) {
+//         if (it_bwd == raw_measurements_groupped.begin()) return true;
+//         it_bwd--;
 
-        unsigned t = it_bwd->time;
-        if (t0 - t > fadeout_threshold) break;
+//         unsigned t = it_bwd->time;
+//         if (t0 - t > fadeout_threshold) break;
     
-        if (!it_bwd->raw_measurements[prn_index].is_present) return true;
-    }
+//         if (!it_bwd->raw_measurements[prn_index].is_present) return true;
+//     }
     
-    return false;
-}
+//     return false;
+// }
 
-std::vector<unsigned> SatNav::check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg) {
-    std::vector<unsigned> low;
+// std::vector<unsigned> SatNav::check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg) {
+//     std::vector<unsigned> low;
 
-    for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
-        unsigned prn_index = prn_id - 1;
-        RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
+//     for (unsigned prn_id = 1; prn_id <= 32; ++prn_id) {
+//         unsigned prn_index = prn_id - 1;
+//         RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
 
-        if (!ref_m.is_present) continue;
+//         if (ref_m.status != ) continue;
         
-        std::vector<double> gps_relative = ref_m.gps_position - solution.position;
-        double zenith_angle = angle_between(solution.position, gps_relative) * 180.0 * M_1_PI;
-        if (90.0 - zenith_angle < mask_angle) {
-            low.push_back(prn_id);
-        }
-    }
+//         std::vector<double> gps_relative = ref_m.gps_position - solution.position;
+//         double zenith_angle = angle(solution.position, gps_relative) * 180.0 * M_1_PI;
+//         if (90.0 - zenith_angle < mask_angle) {
+//             low.push_back(prn_id);
+//         }
+//     }
 
-    return low;
-}
+//     return low;
+// }
 
 RefinedMeasurement SatNav::hatch_filter(const RefinedMeasurement& ref_m) {
     unsigned prn_index = ref_m.prn_id - 1;
 
-    RefinedMeasurement ref_m_hatch = ref_m;
+    RefinedMeasurement ref_m_filtered = ref_m;
 
-    if (refined_measurements_groupped.size() > 0) {
-
-        RefinedMeasurementGroupped ref_mg_last = *(--refined_measurements_groupped.end());  
-
-        if (ref_mg_last.refined_measurements[prn_index].is_present) {
-            double pseudorange_prev = ref_mg_last.refined_measurements[prn_index].pseudorange;
-            double carrier_phase_prev = ref_mg_last.refined_measurements[prn_index].carrier_phase;
-            double delta_phase = ref_m.carrier_phase - carrier_phase_prev;
-
-            ref_m_hatch.pseudorange = hatch_constant * ref_m.pseudorange +
-                                      (1 - hatch_constant) * (pseudorange_prev + delta_phase);
-        }
+    size_t n = refined_measurements_groupped.size();
+    if (n < 2) {
+        return ref_m_filtered;
     }
 
-    return ref_m_hatch;
+    RefinedMeasurement ref_m_previous = refined_measurements_groupped[n - 2].refined_measurements[prn_index];  
+    if (ref_m_previous.status != MeasurementStatus::OK) {
+        return ref_m_filtered;
+    }
+
+    double pseudorange_previous = ref_m_previous.pseudorange;
+    double carrier_phase_previous = ref_m_previous.carrier_phase;
+    double pseudorande_filtered = pseudorange_previous + ref_m.carrier_phase - carrier_phase_previous;
+    ref_m_filtered.pseudorange = (1.0 / hatch_constant) * ref_m.pseudorange + 
+                                 (1.0 - 1.0 / hatch_constant) * pseudorande_filtered;
+    
+    return ref_m_filtered;
 }
 
 const std::vector<State>& SatNav::get_true_states() const {

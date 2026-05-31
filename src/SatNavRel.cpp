@@ -6,8 +6,9 @@ SatNavRel::SatNavRel(SatNav& passive, SatNav& active) : pas(passive), act(active
 SatNavRel::SatNavRel(const SatNavRel& sn) : pas(sn.pas), act(sn.act), true_states(sn.true_states), logger("RGPS") {}
                                         
 void SatNavRel::solve_separately(char et, unsigned ti, unsigned tf) {
-    pas.solve(et, ti, tf);
-    act.solve(et, ti, tf);
+    std::cout << et << std::endl;
+    pas.solve(ti, tf, IntendedError::NONE);
+    act.solve(ti, tf, IntendedError::NONE);
 
     for (const State& ts_pas : pas.get_true_states()) {
         unsigned time = ts_pas.time;
@@ -78,12 +79,12 @@ void SatNavRel::solve_relative(char et, unsigned ti, unsigned tf) {
         SolutionState solution = calculate_solution(ref_mg);
         solution_states.push_back(solution);
 
-        logger.log("Is solved: " + std::to_string(solution.is_solved) + ' ' + solution.failure_type);
+        logger.log("Is solved: " + to_string(solution.status));
         auto ts = get_true_state_iterator(raw_mg_pas.time);
         double error = abs(solution.position - ts->position);
 
         logger.logv("Error norm", error);
-        if (solution.is_solved) {
+        if (solution.status == SolutionStatus::OK) {
             err_avg += error;
             ++err_cnt;
             if (error > 3) {
@@ -111,22 +112,18 @@ bool SatNavRel::check_raw(const RawMeasurement& raw_m_pas, const RawMeasurement&
         return false;
     }
 
-    if (error_type != 'S') {
-        double min_CN0 = std::min(raw_m_pas.L1_CN0, raw_m_act.L1_CN0);
-        double max_CN0 = std::max(raw_m_pas.L1_CN0, raw_m_act.L1_CN0);
+    double min_CN0 = std::min(raw_m_pas.L1_CN0, raw_m_act.L1_CN0);
+    double max_CN0 = std::max(raw_m_pas.L1_CN0, raw_m_act.L1_CN0);
 
-        if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
-            logger.log("Bad CN0: " + std::to_string(raw_m_pas.prn_id) + ", " + std::to_string(min_CN0) + ", " + std::to_string(max_CN0));
-            return false;
-        }
+    if (min_CN0 < CN0_min_threshold || max_CN0 > CN0_max_threshold) {
+        logger.log("Bad CN0: " + std::to_string(raw_m_pas.prn_id) + ", " + std::to_string(min_CN0) + ", " + std::to_string(max_CN0));
+        return false;
     }
 
-    if (error_type != 'F') {
-        if (pas.check_fading(raw_m_pas) || act.check_fading(raw_m_act)) {
-            logger.logv("Fading", raw_m_pas.prn_id);
-            return false;
-        }
-    }
+    // if (pas.check_fading(raw_m_pas) || act.check_fading(raw_m_act)) {
+    //     logger.logv("Fading", raw_m_pas.prn_id);
+    //     return false;
+    // }
 
     return true;
 }
@@ -140,11 +137,12 @@ RefinedMeasurement SatNavRel::refine_raw(const RawMeasurement& raw_m_pas, const 
 
     State gs = pas.handler.get_state(raw_m_pas.prn_id, raw_m_pas.time);
 
-    return {true, 
-            raw_m_pas.time, 
+    return {MeasurementStatus::OK, 
             raw_m_pas.prn_id, 
+            raw_m_pas.time, 
+            0.0,
             pseudorange_delta, 
-            carrier_phase_delta, 
+            carrier_phase_delta,
             R * gs.position, 
             R * gs.velocity};
 }
@@ -166,7 +164,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     // Проходим по всем присутствующим НКА
     for (const auto& ref_m : ref_mg.refined_measurements) {
 
-        if (!ref_m.is_present) continue;
+        if (ref_m.status != MeasurementStatus::OK) continue;
         
         double delta = calculate_delta(ref_m.gps_position - dfs.pas_pos, coarse, ref_m.gps_velocity);
 
@@ -183,8 +181,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         df_state = 1;
 
         solution.position = dfs.x;
-        solution.is_solved = false;
-        solution.failure_type = '0';
+        solution.status = SolutionStatus::HIGH_GDOP;
         return solution;
     }
 
@@ -196,8 +193,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         df_state = 2;
 
         solution.position = dfs.x;
-        solution.is_solved = false;
-        solution.failure_type = '1';
+        solution.status = SolutionStatus::HIGH_GDOP;
         return solution;
     }
 
@@ -278,7 +274,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
         ++consecutive_model_steps;
         since_last_model_step = 0;
         solution.position = dfs.x;
-        solution.is_solved = true;
+        solution.status = SolutionStatus::OK;
         return solution;
     }
 
@@ -352,8 +348,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
         dfs_prev = dfs;
         solution.position = dfs.x;
-        solution.is_solved = false;
-        solution.failure_type = 'T';
+        solution.status = SolutionStatus::HIGH_GDOP;
 
         logger.log("Pure modeling");
         logger.log("Bad trace");
@@ -373,8 +368,7 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
 
         dfs_prev = dfs;
         solution.position = dfs.x;
-        solution.is_solved = false;
-        solution.failure_type = 'W';
+        solution.status = SolutionStatus::HIGH_GDOP;
 
         logger.log("Pure modeling");
         logger.logv("Reseted filter", W.norm());
@@ -419,11 +413,10 @@ SolutionState SatNavRel::calculate_solution(const RefinedMeasurementGroupped& re
     logger.logv("Consecutive model steps", consecutive_model_steps);
 
     if (since_last_model_step < model_steps_relaxation_threshold) {
-        solution.is_solved = false;
-        solution.failure_type = 'M';
+        solution.status = SolutionStatus::HIGH_GDOP;
         logger.log("Too soon since last model step");
     } else {
-        solution.is_solved = true;
+        solution.status = SolutionStatus::OK;
     }
 
     dfs_prev = dfs;
@@ -476,7 +469,7 @@ std::vector<double> SatNavRel::get_coarse_position(SatType sat_type, unsigned ti
         break;
     }
 
-    if (sat->get_solution_state_iterator(time)->is_solved) {
+    if (sat->get_solution_state_iterator(time)->status == SolutionStatus::OK) {
         logger.log("Coarse found");
         return sat->get_solution_state_iterator(time)->position;
     } else {

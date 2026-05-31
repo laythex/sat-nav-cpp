@@ -4,16 +4,16 @@ GPSHandler::GPSHandler(const Date& date) {
     ephemeris = DataParser::load_brdc_data(date);
 }
 
-double GPSHandler::get_clock_error(unsigned prn_id, double gps_time) {
-    double t_sv = gps_to_sv(gps_time);
+double GPSHandler::get_clock_error(unsigned prn_id, double time) {
+    double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
     double t = t_sv - eph.t_oe;
     return eph.a_f0 + eph.a_f1 * t + eph.a_f2 * t * t;
 }
 
-double GPSHandler::get_relativistic_error(unsigned prn_id, double gps_time) {
-    double t_sv = gps_to_sv(gps_time);
+double GPSHandler::get_relativistic_error(unsigned prn_id, double time) {
+    double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
     double t = t_sv - eph.t_oe;
@@ -27,11 +27,11 @@ double GPSHandler::get_relativistic_error(unsigned prn_id, double gps_time) {
         E += (M - E + eph.e * sin(E)) / (1 - eph.e * cos(E));
     }
 
-    return F * eph.e * eph.A_sqrt * sin(E);
+    return -F * eph.e * eph.A_sqrt * sin(E);
 }
 
-State GPSHandler::get_state(unsigned prn_id, double gps_time) {
-    double t_sv = gps_to_sv(gps_time);
+State GPSHandler::get_state(unsigned prn_id, double time) {
+    double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
     double t = t_sv - eph.t_oe;

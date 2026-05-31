@@ -41,3 +41,11 @@ void Logger::logv(const std::string& desc, int val, char end) {
 void Logger::logv(const std::string& desc, unsigned val, char end) {
     file << desc << ":\t" << std::to_string(val) << end;
 }
+
+void Logger::logv(const std::string& desc, MeasurementStatus val, char end) {
+    file << desc << ":\t" << to_string(val) << end;
+}
+
+void Logger::logv(const std::string& desc, SolutionStatus val, char end) {
+    file << desc << ":\t" << to_string(val) << end;
+}

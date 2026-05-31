@@ -16,11 +16,11 @@ class SatNavRel;
 class SatNav {
 
 public:
-    SatNav(const Date& date, const GRACE_SATS sat, const GPSHandler& handler);
-    SatNav(const Date& date, const SWARM_SATS sat, const GPSHandler& handler);
+    SatNav(const Date& date, const GRACE sat, const GPSHandler& handler);
+    SatNav(const Date& date, const SWARM sat, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
-    void solve(char et = '0', unsigned ti = 0, unsigned tf = 0);
+    void solve(unsigned ti = 0, unsigned tf = 0, IntendedError error = IntendedError::NONE);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;
@@ -35,11 +35,11 @@ public:
     friend class SatNavRel;
 
 private:
-    bool check_raw(const RawMeasurement& raw_m);
+    MeasurementStatus check_raw(const RawMeasurement& raw_m);
     RefinedMeasurement refine_raw(const RawMeasurement& raw_m);
-    SolutionState calculate_solution(const RefinedMeasurementGroupped& ref_mg) const;
-    bool check_fading(const RawMeasurement& raw_m);
-    std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
+    SolutionState calculate_solution(RefinedMeasurementGroupped& ref_mg) const;
+    // bool check_fading(const RawMeasurement& raw_m);
+    // std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
     RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
 
     GPSHandler handler;
@@ -52,7 +52,7 @@ private:
 
     Logger logger;
 
-    char error_type = '0';
+    IntendedError error = IntendedError::NONE;
 
     const double c = 2.99792458e8;
     const double earth_rotation_rate = 7.2921151467e-5;
@@ -60,12 +60,20 @@ private:
     const double C2 = -1.54572778016;
     const double CN0_constant = 3.01029995664;
 
+    const Matrix E3 = identity(3);
+    const Matrix Omega = {{{0, earth_rotation_rate, 0}, 
+                            {-earth_rotation_rate, 0, 0}, 
+                            {0, 0, 0}}};
+
+
     const double GDOP0 = 10;
     const double mask_angle = 10;
     
-    const unsigned fadeout_threshold = 10;
-    const double CN0_min_threshold = 25;
+    const unsigned fadeout_threshold = 30;
+    const double CN0_min_threshold = 35;
     const double CN0_max_threshold = 60;
 
-    const double hatch_constant = 1;
+    const double hatch_constant = 2;
+
+    const double solution_tolerance = 0.1;
 };

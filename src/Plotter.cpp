@@ -1,7 +1,7 @@
 #include "Plotter.hpp"
 
-Plotter::Plotter(const SatNav& sn, unsigned time_initial, unsigned time_final) : problem(sn), problem_copy(sn), time_initial_(time_initial), time_final_(time_final) {
-    problem.solve('0', time_initial_, time_final_);
+Plotter::Plotter(const SatNav& sn, unsigned time_initial, unsigned time_final) : problem(sn), problem_copy(sn), ti(time_initial), tf(time_final) {
+    problem.solve(ti, tf, IntendedError::NONE);
 }
 
 void Plotter::plot_errors_norm(double ymin, double ymax) {
@@ -14,7 +14,7 @@ void Plotter::plot_errors_norm(double ymin, double ymax) {
     file << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 
@@ -54,7 +54,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
             unsigned prn_index = prn_id - 1;
             RefinedMeasurement ref_m = ref_mg.refined_measurements[prn_index];
 
-            if (ref_m.is_present) {
+            if (ref_m.status == MeasurementStatus::OK) {
                 double error_pr = abs(ref_m.gps_position - ts.position) - ref_m.pseudorange;
                 file << error_pr;
             }
@@ -79,7 +79,7 @@ std::string filename = "gdop";
     file << ymin << '\t' << ymax << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 
@@ -93,18 +93,18 @@ std::string filename = "gdop";
     run_py_plotter(filename);
 }
 
-void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
-    problem_copy.solve('I', time_initial_, time_final_);
+void Plotter::plot_errors_by_type(IntendedError error, double ymin, double ymax) {
+    problem_copy.solve(ti, tf, error);
 
-    std::string filename = "errors-" + error_names[error_type];
+    std::string filename = "errors-" + to_filename(error);
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << error_titles[error_type] << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    file << "Исследуемая ошибка: " + to_title(error) << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 
@@ -112,7 +112,7 @@ void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
         if (copy_ss_it == problem.get_solution_states().end()) continue;
         SolutionState copy_ss = *copy_ss_it;
 
-        if (!copy_ss.is_solved) continue;
+        if (copy_ss.status != SolutionStatus::OK) continue;
 
         double error_norm = abs(ss.position - copy_ss.position);
 
@@ -125,7 +125,7 @@ void Plotter::plot_errors_by_type(char error_type, double ymin, double ymax) {
 }
 
 void Plotter::plot_map_norm(const std::string& mode, double threshold) {
-    problem_copy.solve('I', time_initial_, time_final_);
+    problem_copy.solve(ti, tf, IntendedError::IONOSPHERIC);
 
     std::string filename = "map-norm";
     std::ofstream file;
@@ -135,7 +135,7 @@ void Plotter::plot_map_norm(const std::string& mode, double threshold) {
     file << threshold << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
 
@@ -155,7 +155,7 @@ void Plotter::plot_map_norm(const std::string& mode, double threshold) {
 }
 
 void Plotter::plot_map_iono(const std::string& mode, double threshold) {
-    problem_copy.solve('I', time_initial_, time_final_);
+    problem_copy.solve(ti, tf, IntendedError::IONOSPHERIC);
 
     std::string filename = "map-iono";
     std::ofstream file;
@@ -165,7 +165,7 @@ void Plotter::plot_map_iono(const std::string& mode, double threshold) {
     file << threshold << std::endl;
     
     for (const auto& ss : problem.get_solution_states()) {
-        if (!ss.is_solved) continue;
+        if (ss.status != SolutionStatus::OK) continue;
 
         unsigned time = ss.time;
         
@@ -173,7 +173,7 @@ void Plotter::plot_map_iono(const std::string& mode, double threshold) {
         if (copy_ss_it == problem.get_solution_states().end()) continue;
         SolutionState copy_ss = *copy_ss_it;
 
-        if (!copy_ss.is_solved) continue;
+        if (copy_ss.status != SolutionStatus::OK) continue;
 
         std::vector<double> geo_coords = ECEF_to_geographycal(ss.position);
         double error_norm = abs(ss.position - copy_ss.position);
