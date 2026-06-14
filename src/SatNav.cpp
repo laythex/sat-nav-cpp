@@ -25,15 +25,15 @@ SatNav::SatNav(const SatNav& sn)
       raw_measurements_groupped(sn.raw_measurements_groupped), acceleration_measurements(sn.acceleration_measurements) {
 }
 
-void SatNav::solve(unsigned ti, unsigned tf, IntendedError error) {
+void SatNav::solve(IntendedError error) {
     this->error = error;
 
     logger.logv("Starting GPS", date);
     logger.lnbr();
 
-    unsigned t0 = raw_measurements_groupped[0].time;
+    unsigned t0 = raw_measurements_groupped.front().time;
     for (const RawMeasurementGroupped& raw_mg : raw_measurements_groupped) {
-        if (!SatNavUtils::check_time(raw_mg.time, ti, tf, t0)) continue;
+        if (raw_mg.time - t0 < Config::ti || raw_mg.time - t0 >= Config::tf) continue;
 
         logger.logv("Time", raw_mg.time);
 
@@ -76,9 +76,9 @@ SolutionState SatNav::find_solution(const RawMeasurementGroupped& raw_mg) {
                 Xi -= Constants::Omega * (ref_m.toa_ASN - ref_m.tot - dt_ASN) * ref_m.gps_state.position;
             }
 
-            Eigen::Index ei = static_cast<Eigen::Index>(i);
-            U[ei] = ref_m.pr_refined - (Xi - X).norm();
-            B.row(ei) = (Xi - X).normalized().homogeneous();
+            Eigen::Index ie = static_cast<Eigen::Index>(i);
+            U(ie) = ref_m.pr_refined - (Xi - X).norm();
+            B.row(ie) = (Xi - X).normalized().homogeneous();
         }
 
         Eigen::FullPivLU<Eigen::Matrix4d> lu(B.transpose() * B);

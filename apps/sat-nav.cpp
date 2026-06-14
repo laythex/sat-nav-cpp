@@ -12,12 +12,17 @@ int main() {
     темплейт бинарного поиска
     */
 
+    Config::ti = 0;
+    Config::tf = 86400;
+
     Config::GDOP0 = 10.0;
     Config::CN0_min_threshold = 32.0;
     Config::CN0_max_threshold = 60.0;
-    Config::fadein_threshold = 30;
+    Config::fadein_threshold = 60;
     Config::hatch_constant = 1 / 10.0;
     Config::solution_tolerance = 0.1;
+
+    Config::use_kf = false;
 
     // Date date = {2005, 12, 10}; GRACE sat = GRACE::A;
     // Date date = {2005, 12, 10}; GRACE sat = GRACE::B;
@@ -34,7 +39,7 @@ int main() {
     // SatNav problem = SatNav(date, sat, handler);
 
     // double m = 10;
-    // Plotter plotter(problem, 0, 0);
+    // Plotter plotter(problem);
     // plotter.plot_errors_pr(-m, m);
     // plotter.plot_errors_norm(0, m);
 
@@ -74,8 +79,8 @@ int main() {
 
     double m = 5;
     plotter.plot_errors_norm(0, m);
-    // plotter.plot_errors_proj(-m, m);
-    // plotter.plot_true_norm();
+    plotter.plot_errors_proj(-m, m);
+    plotter.plot_true_norm();
 
     // Date date = {2026, 3, 1};
     // GPSHandler handler = GPSHandler(date);

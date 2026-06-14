@@ -1,25 +1,23 @@
 #include "Plotter.hpp"
 
-Plotter::Plotter(const SatNav& sn, unsigned time_initial, unsigned time_final)
-    : problem(sn), problem_copy(sn), ti(time_initial), tf(time_final) {
-    problem.solve(ti, tf, IntendedError::NONE);
-}
+Plotter::Plotter(const SatNav& sn) : problem(sn), problem_copy(sn) { problem.solve(IntendedError::NONE); }
 
 void Plotter::plot_errors_norm(double ymin, double ymax) {
     std::string filename = "errors-norm-" + to_string(problem.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << "Модуль ошибки" << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
+    unsigned t0 = problem.get_solution_states().front().time;
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatus::OK) continue;
 
-        unsigned time = ss.time;
+        double time = (ss.time - t0) / 60.0;
 
-        auto ts_it = problem.get_true_state_iterator(time);
+        auto ts_it = problem.get_true_state_iterator(ss.time);
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
@@ -38,7 +36,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Модуль ошибки псевдодальности" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << "Модуль ошибки псевдодальности" << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
@@ -54,14 +52,15 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 
     dt_ASN_c_avg /= ss_count;
 
+    unsigned t0 = problem.get_refined_measurements_groupped().front().time;
     for (const auto& ref_mg : problem.get_refined_measurements_groupped()) {
-        unsigned time = ref_mg.time;
+        double time = (ref_mg.time - t0) / 60.0;
 
-        auto ts_it = problem.get_true_state_iterator(time);
+        auto ts_it = problem.get_true_state_iterator(ref_mg.time);
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
-        auto ss_it = problem.get_solution_state_iterator(time);
+        auto ss_it = problem.get_solution_state_iterator(ref_mg.time);
         if (ss_it == problem.get_solution_states().end()) continue;
         SolutionState ss = *ss_it;
 
@@ -113,7 +112,7 @@ void Plotter::plot_gdop(double ymin, double ymax) {
 
 void Plotter::plot_errors_norm_by_type(IntendedError error, double ymin, double ymax) {
     SatNav sn = problem_copy;
-    sn.solve(ti, tf, error);
+    sn.solve(error);
 
     std::string filename = "errors-norm-" + to_filename(error) + "-" + to_string(problem.get_date());
     std::ofstream file;
@@ -146,22 +145,23 @@ void Plotter::plot_errors_norm_by_type(IntendedError error, double ymin, double 
 
 void Plotter::plot_errors_proj_by_type(IntendedError error, double ymin, double ymax) {
     SatNav sn = problem_copy;
-    sn.solve(ti, tf, error);
+    sn.solve(error);
 
     std::string filename = "errors-proj-" + to_filename(error) + "-" + to_string(problem.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Вклад в решение: " + to_title(error) << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    file << "Вклад в решение: " + to_title(error) << '\t' << "Время, ч" << '\t' << "Вклад, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
 
+    unsigned t0 = problem.get_solution_states().front().time;
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatus::OK) continue;
 
-        unsigned time = ss.time;
+        double time = (ss.time - t0) / 60.0;
 
-        auto ss_copy_it = sn.get_solution_state_iterator(time);
+        auto ss_copy_it = sn.get_solution_state_iterator(ss.time);
         if (ss_copy_it == sn.get_solution_states().end()) continue;
         SolutionState ss_copy = *ss_copy_it;
 
@@ -179,13 +179,13 @@ void Plotter::plot_errors_proj_by_type(IntendedError error, double ymin, double 
 
 void Plotter::plot_errors_pr_by_type(IntendedError error, double ymin, double ymax) {
     SatNav sn = problem_copy;
-    sn.solve(ti, tf, error);
+    sn.solve(error);
 
     std::string filename = "errors-pr-" + to_filename(error) + "-" + to_string(problem.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Ошибка псевдодальности без: " + to_title(error) << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << "Ошибка псевдодальности без: " + to_title(error) << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
@@ -201,14 +201,15 @@ void Plotter::plot_errors_pr_by_type(IntendedError error, double ymin, double ym
 
     dt_ASN_c_avg /= ss_count;
 
+    unsigned t0 = problem.get_refined_measurements_groupped().front().time;
     for (const auto& ref_mg : sn.get_refined_measurements_groupped()) {
-        unsigned time = ref_mg.time;
+        double time = (ref_mg.time - t0) / 60.0;
 
-        auto ts_copy_it = sn.get_true_state_iterator(time);
+        auto ts_copy_it = sn.get_true_state_iterator(ref_mg.time);
         if (ts_copy_it == sn.get_true_states().end()) continue;
         State ts = *ts_copy_it;
 
-        auto ss_copy_it = sn.get_solution_state_iterator(time);
+        auto ss_copy_it = sn.get_solution_state_iterator(ref_mg.time);
         if (ss_copy_it == sn.get_solution_states().end()) continue;
         SolutionState ss_copy = *ss_copy_it;
 
@@ -237,7 +238,7 @@ void Plotter::plot_errors_pr_by_type(IntendedError error, double ymin, double ym
 
 void Plotter::plot_map_iono(const std::string& mode, double threshold) {
     SatNav sn = problem_copy;
-    sn.solve(ti, tf, IntendedError::IONOSPHERIC);
+    sn.solve(IntendedError::IONOSPHERIC);
 
     std::string filename = "map-iono";
     std::ofstream file;

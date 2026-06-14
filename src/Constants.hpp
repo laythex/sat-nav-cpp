@@ -15,6 +15,16 @@ namespace Constants {
     inline constexpr double CN0_constant = 3.01029995664;
 
     inline const Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
-    inline const Eigen::Matrix3d Omega =
-        (Eigen::Matrix3d() << 0.0, -omega, 0.0, omega, 0.0, 0.0, 0.0, 0.0, 0.0).finished();
+    inline const Eigen::Matrix3d Omega = [] {
+        Eigen::Matrix3d M;
+        M << 0.0, -omega, 0.0, omega, 0.0, 0.0, 0.0, 0.0, 0.0;
+        return M;
+    }();
+
+    inline const Eigen::Matrix3d Omega2 = [] {
+        Eigen::Matrix3d M;
+        double omega2 = -omega * omega;
+        M << omega2, 0.0, 0.0, 0.0, omega2, 0.0, 0.0, 0.0, 0.0;
+        return M;
+    }();
 }

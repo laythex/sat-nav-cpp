@@ -12,7 +12,7 @@ enum class MeasurementStatus { DEFAULT, OK, NOT_PRESENT, QUALITY_FLAG, CN0, FADE
 
 enum class SolutionStatus { DEFAULT, OK, SINGULAR_B1, HIGH_GDOP };
 
-enum class SolutionStatusRel { DEFAULT, OK, NO_STANDALONE, SINGULAR_C1 };
+enum class SolutionStatusRel { DEFAULT, OK, NO_STANDALONE, INITIALIZING, MODEL_STEP, SINGULAR_C1 };
 
 enum class IntendedError { NONE, QUALITY_FLAG, NOISY, GPS_CLOCK, IONOSPHERIC, RELATIVISTIC, SAGNAC, HATCH, GDOP };
 
@@ -35,6 +35,12 @@ struct State {
     unsigned time = 0;
     Eigen::Vector3d position = Eigen::Vector3d::Zero();
     Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
+};
+
+struct DiscreteState {
+    unsigned time = 0;
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d increment = Eigen::Vector3d::Zero();
 };
 
 struct SolutionState : State {
@@ -100,19 +106,6 @@ struct AccelerationMeasurement {
     std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
 };
 
-struct DynamicFilterStateOld {
-    unsigned time = 0;
-    std::vector<double> x = std::vector<double>(3, 0.0);
-    std::vector<double> dx = std::vector<double>(3, 0.0);
-    std::vector<double> pas_pos = std::vector<double>(3, 0.0);
-    std::vector<double> d_pas_pos = std::vector<double>(3, 0.0);
-    std::vector<bool> mask = std::vector<bool>(32, false);
-    std::vector<double> xi_m_1 = std::vector<double>(3, 0.0);
-    std::vector<double> xi_m_2 = std::vector<double>(3, 0.0);
-    std::vector<std::vector<double>> C_rows = std::vector<std::vector<double>>(32);
-    std::vector<double> x_est = std::vector<double>(3, 0.0);
-};
-
 constexpr char to_char(GRACE sat) { return static_cast<char>(sat); }
 
 constexpr char to_char(SWARM sat) { return static_cast<char>(sat); }
@@ -129,7 +122,8 @@ constexpr std::string to_string(SolutionStatus status) {
 }
 
 constexpr std::string to_string(SolutionStatusRel status) {
-    constexpr const char* messages[] = {"Status not assigned", "OK", "Standalone not solved", "Singular C1"};
+    constexpr const char* messages[] = {"Status not assigned",    "OK",         "Standalone not solved",
+                                        "Filter is initializing", "Model step", "Singular C1"};
     return messages[static_cast<int>(status)];
 }
 

@@ -11,7 +11,8 @@
 
 class Plotter {
 public:
-    Plotter(const SatNav& sn, unsigned ti = 0, unsigned tf = 0);
+    Plotter(const SatNav& sn);
+
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_pr(double ymin = 0, double ymax = 0);
     void plot_gdop(double ymin = 0, double ymax = 0);
@@ -34,8 +35,6 @@ private:
 
     SatNav problem;
     SatNav problem_copy;
-
-    unsigned ti, tf;
 
     char sep = ',';
 };

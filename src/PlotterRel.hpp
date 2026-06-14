@@ -10,7 +10,8 @@
 
 class PlotterRel {
 public:
-    PlotterRel(const SatNavRel& sn, unsigned ti = 0, unsigned tf = 0);
+    PlotterRel(const SatNavRel& sn);
+
     void plot_errors_norm(double ymin = 0, double ymax = 0);
     void plot_errors_proj(double ymin = 0, double ymax = 0);
     void plot_true_norm(double ymin = 0, double ymax = 0);
@@ -24,6 +25,4 @@ private:
     SatNavRel problem;
 
     char sep = ',';
-
-    unsigned ti, tf;
 };

@@ -22,7 +22,7 @@ public:
     SatNav(const Date& date, const SWARM sat, const GPSHandler& handler);
     SatNav(const SatNav& sn);
 
-    void solve(unsigned ti = 0, unsigned tf = 0, IntendedError error = IntendedError::NONE);
+    void solve(IntendedError error = IntendedError::NONE);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionState>& get_solution_states() const;

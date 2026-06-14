@@ -1,24 +1,23 @@
 #include "PlotterRel.hpp"
 
-PlotterRel::PlotterRel(const SatNavRel& sn, unsigned ti, unsigned tf) : problem(sn), ti(ti), tf(tf) {
-    problem.solve(ti, tf);
-}
+PlotterRel::PlotterRel(const SatNavRel& sn) : problem(sn) { problem.solve(); }
 
 void PlotterRel::plot_errors_norm(double ymin, double ymax) {
     std::string filename = "rel-errors-norm-" + to_string(problem.pas.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
+    file << "Модуль ошибки" << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
+    unsigned t0 = problem.get_solution_states().front().time;
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatusRel::OK) continue;
 
-        unsigned time = ss.time;
+        double time = (ss.time - t0) / 60.0;
 
-        auto ts_it = problem.get_true_state_iterator(time);
+        auto ts_it = problem.get_true_state_iterator(ss.time);
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
@@ -65,12 +64,13 @@ void PlotterRel::plot_true_norm(double ymin, double ymax) {
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Расстояние между аппаратами" << '\t' << "Время, с" << '\t' << "Расстояние, км" << std::endl;
+    file << "Расстояние между аппаратами" << '\t' << "Время, ч" << '\t' << "Расстояние, км" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
+    unsigned t0 = problem.get_true_states().front().time;
     for (const auto& ts : problem.get_true_states()) {
-        unsigned time = ts.time;
+        double time = (ts.time - t0) / 60.0;
         double true_norm = ts.position.norm();
 
         file << time << sep << true_norm * 1.0e-3 << std::endl;
