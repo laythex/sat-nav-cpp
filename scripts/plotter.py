@@ -14,7 +14,9 @@ with open(data_path) as header:
 
 has_legend = not (len(legend_labels) == 1 and legend_labels[0] == '')
 
-data = pd.read_csv(data_path, skiprows=3)
+data = pd.read_csv(data_path, skiprows=3, header=None)
+
+# ls = ['--', '-', '--', '-']
 
 for i in range(1, data.shape[1]):
     plt.plot(data.iloc[:, 0], data.iloc[:, i], label='' if not has_legend else legend_labels[i - 1])

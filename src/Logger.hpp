@@ -1,28 +1,33 @@
 #pragma once
 
-#include <string>
-#include <format>
 #include <fstream>
+#include <string_view>
 
 #include "Structures.hpp"
 
 class Logger {
 public:
-    Logger(const std::string& filename);
-    ~Logger();
-    
+    Logger(std::string_view filename);
+
     void lnbr(char end = '\n');
+    void log(std::string_view arg, char end = '\n');
 
-    void log(const std::string& arg, char end = '\n');
-    void log(double arg, char end = '\n');
-    void log(size_t arg, char end = '\n');
+    template <typename T> void log(const T& arg, char end = '\n') {
+        if constexpr (requires { to_string(arg); }) {
+            file << to_string(arg) << end;
+        } else {
+            file << arg << end;
+        }
+    }
 
-    void logv(const std::string& desc, double val, char end = '\n');
-    void logv(const std::string& desc, size_t val, char end = '\n');
-    void logv(const std::string& desc, int val, char end = '\n');
-    void logv(const std::string& desc, unsigned val, char end = '\n');
-    void logv(const std::string& desc, MeasurementStatus val, char end = '\n');
-    void logv(const std::string& desc, SolutionStatus val, char end = '\n');
+    template <typename T> void logv(std::string_view desc, const T& val, char end = '\n') {
+        file << desc << ":\t";
+        if constexpr (requires { to_string(val); }) {
+            file << to_string(val) << end;
+        } else {
+            file << val << end;
+        }
+    }
 
 private:
     std::ofstream file;

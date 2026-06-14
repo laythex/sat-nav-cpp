@@ -1,41 +1,20 @@
 #pragma once
 
+#include <Eigen/Dense>
+#include <format>
 #include <vector>
 
 enum class GRACE : char { A = 'A', B = 'B', C = 'C', D = 'D' };
 
 enum class SWARM : char { A = 'A', B = 'B', C = 'C' };
 
-enum class MeasurementStatus {
-    DEFAULT,
-    OK,
-    NOT_PRESENT,
-    QUALITY_FLAG,
-    CN0,
-    FADING,
-    COUNT
-};
+enum class MeasurementStatus { DEFAULT, OK, NOT_PRESENT, QUALITY_FLAG, CN0, FADE_IN };
 
-enum class SolutionStatus {
-    DEFAULT,
-    OK,
-    SINGULAR_B1,
-    HIGH_GDOP,
-    COUNT
-};
+enum class SolutionStatus { DEFAULT, OK, SINGULAR_B1, HIGH_GDOP };
 
-enum class IntendedError {
-    NONE,
-    QUALITY_FLAG,
-    CN0,
-    NEW,
-    LOW,
-    GPS_CLOCK,
-    IONOSPHERIC,
-    RELATIVISTIC,
-    SAGNAC,
-    HATCH_FILTER
-};
+enum class SolutionStatusRel { DEFAULT, OK, NO_STANDALONE, SINGULAR_C1 };
+
+enum class IntendedError { NONE, QUALITY_FLAG, NOISY, GPS_CLOCK, IONOSPHERIC, RELATIVISTIC, SAGNAC, HATCH, GDOP };
 
 struct Date {
     unsigned year;
@@ -54,13 +33,23 @@ struct Ephemeris {
 
 struct State {
     unsigned time = 0;
-    std::vector<double> position = std::vector<double>(3, 0.0);
-    std::vector<double> velocity = std::vector<double>(3, 0.0);
+    Eigen::Vector3d position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
 };
 
 struct SolutionState : State {
     SolutionStatus status = SolutionStatus::DEFAULT;
     double GDOP = 0.0;
+    double dt_ASN_c = 0.0;
+
+    std::vector<bool> gps_mask = std::vector<bool>(32, false);
+    std::vector<State> gps_states = std::vector<State>(32);
+    std::vector<double> prs_L1 = std::vector<double>(32, 0.0);
+    std::vector<double> cps_L1 = std::vector<double>(32, 0.0);
+};
+
+struct SolutionStateRel : State {
+    SolutionStatusRel status = SolutionStatusRel::DEFAULT;
 };
 
 struct RawMeasurement {
@@ -76,28 +65,42 @@ struct RawMeasurement {
     unsigned qualflg = 0;
 };
 
+struct RawMeasurementGroupped {
+    unsigned time = 0;
+    std::vector<RawMeasurement> measurements = std::vector<RawMeasurement>(32);
+};
+
 struct RefinedMeasurement {
     MeasurementStatus status = MeasurementStatus::DEFAULT;
     unsigned prn_id = 0;
     unsigned toa_ASN = 0;
-    double tot = 0;
-    double pseudorange = 0.0;
-    double carrier_phase = 0.0;
-    std::vector<double> gps_position = std::vector<double>(3, 0.0);
-    std::vector<double> gps_velocity = std::vector<double>(3, 0.0);
-};
-
-struct RawMeasurementGroupped {
-    unsigned time = 0;
-    std::vector<RawMeasurement> raw_measurements = std::vector<RawMeasurement>(32);
+    double tot = 0.0;
+    double pr_refined = 0.0;
+    double cp_refined = 0.0;
+    State gps_state;
 };
 
 struct RefinedMeasurementGroupped {
     unsigned time = 0;
-    std::vector<RefinedMeasurement> refined_measurements = std::vector<RefinedMeasurement>(32);
+    std::vector<RefinedMeasurement> measurements = std::vector<RefinedMeasurement>(32);
 };
 
-struct DynamicFilterState {
+struct StandaloneData {
+    unsigned time = 0;
+    SolutionState pas;
+    SolutionState act;
+
+    bool is_fully_solved() const;
+    bool is_fully_present_at(size_t prn_id) const;
+};
+
+struct AccelerationMeasurement {
+    unsigned time = 0;
+    std::vector<double> linear_acceleration = std::vector<double>(3, 0.0);
+    std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
+};
+
+struct DynamicFilterStateOld {
     unsigned time = 0;
     std::vector<double> x = std::vector<double>(3, 0.0);
     std::vector<double> dx = std::vector<double>(3, 0.0);
@@ -110,70 +113,45 @@ struct DynamicFilterState {
     std::vector<double> x_est = std::vector<double>(3, 0.0);
 };
 
-struct AccelerationMeasurement {
-    unsigned time = 0;
-    std::vector<double> linear_acceleration = std::vector<double>(3, 0.0);
-    std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
-};
+constexpr char to_char(GRACE sat) { return static_cast<char>(sat); }
 
-constexpr char to_char(GRACE sat) {
-    return static_cast<char>(sat);
-}
-
-constexpr char to_char(SWARM sat) {
-    return static_cast<char>(sat);
-}
+constexpr char to_char(SWARM sat) { return static_cast<char>(sat); }
 
 constexpr std::string to_string(MeasurementStatus status) {
-    constexpr const char* messages[] = {
-        "Status not assigned",
-        "OK",
-        "Measurement is not present",
-        "Quality flag is bad",
-        "CN0 is bad",
-        "Satellite is fading"
-    };
+    constexpr const char* messages[] = {"Status not assigned", "OK",      "Measurement not present",
+                                        "Bad quality flag",    "Bad CN0", "Fading satellite"};
     return messages[static_cast<int>(status)];
 }
 
 constexpr std::string to_string(SolutionStatus status) {
-    constexpr const char* messages[] = {
-        "Status not assigned",
-        "OK",
-        "Matrix B1 is singular",
-        "GDOP is too high"
-    };
+    constexpr const char* messages[] = {"Status not assigned", "OK", "Singular B1", "High GDOP"};
+    return messages[static_cast<int>(status)];
+}
+
+constexpr std::string to_string(SolutionStatusRel status) {
+    constexpr const char* messages[] = {"Status not assigned", "OK", "Standalone not solved", "Singular C1"};
     return messages[static_cast<int>(status)];
 }
 
 constexpr std::string to_filename(IntendedError status) {
-    constexpr const char* messages[] = {
-        "none",
-        "qualflg",
-        "cn0",
-        "new",
-        "low",
-        "gps-clock",
-        "ionophere",
-        "relativity",
-        "sagnac",
-        "hatch",
-    };
+    constexpr const char* messages[] = {"none",         "qualflg", "noisy", "gps-clock", "ionopheric",
+                                        "relativistic", "sagnac",  "hatch", "gdop"};
     return messages[static_cast<int>(status)];
 }
 
 constexpr std::string to_title(IntendedError status) {
-    constexpr const char* messages[] = {
-        "none",
-        "признак качества",
-        "отношение несущей к плотности шума",
-        "новые НКА",
-        "низкие НКА",
-        "ошибка часов НКА",
-        "ионосферный вклад",
-        "релятивистская поправка",
-        "эффект Саньяка",
-        "хатч-фильтр",
-    };
+    constexpr const char* messages[] = {"none",
+                                        "признак качества",
+                                        "шумные измерения",
+                                        "ошибка часов НКА",
+                                        "ионосферный вклад",
+                                        "релятивистская поправка",
+                                        "эффект Саньяка",
+                                        "хатч-фильтр",
+                                        "GDOP"};
     return messages[static_cast<int>(status)];
+}
+
+constexpr std::string to_string(const Date& date) {
+    return std::format("{:04}-{:02}-{:02}", date.year, date.month, date.day);
 }

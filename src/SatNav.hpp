@@ -1,15 +1,17 @@
 #pragma once
 
+#include <Eigen/Dense>
 #include <iostream>
 #include <vector>
-#include <cstddef>
 
-#include "LinAlg.hpp"
-#include "Structures.hpp"
-#include "GPSHandler.hpp"
+#include "Config.hpp"
+#include "Constants.hpp"
 #include "DataParser.hpp"
+#include "GPSHandler.hpp"
 #include "Logger.hpp"
 #include "SatNavRel.hpp"
+#include "SatNavUtils.hpp"
+#include "Structures.hpp"
 
 class SatNavRel;
 
@@ -32,48 +34,32 @@ public:
     std::vector<SolutionState>::const_iterator get_solution_state_iterator(unsigned time) const;
     std::vector<RawMeasurementGroupped>::const_iterator get_raw_measurement_groupped_iterator(unsigned time) const;
 
+    Date get_date() const;
+
     friend class SatNavRel;
 
 private:
-    MeasurementStatus check_raw(const RawMeasurement& raw_m);
-    RefinedMeasurement refine_raw(const RawMeasurement& raw_m);
-    SolutionState calculate_solution(RefinedMeasurementGroupped& ref_mg) const;
-    // bool check_fading(const RawMeasurement& raw_m);
-    // std::vector<unsigned> check_low(const SolutionState& solution, const RefinedMeasurementGroupped& ref_mg);
-    RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m);
+    SolutionState find_solution(const RawMeasurementGroupped& raw_mg);
 
+    std::vector<size_t> check_raw_groupped(const RawMeasurementGroupped& raw_mg);
+    MeasurementStatus check_raw(const RawMeasurement& raw_m) const;
+
+    RefinedMeasurementGroupped refine_raw_groupped(const RawMeasurementGroupped& raw_mg,
+                                                   const std::vector<size_t>& present_prns) const;
+    RefinedMeasurement refine_raw(const RawMeasurement& raw_m) const;
+
+    bool check_fadein(const RawMeasurement& raw_m) const;
+    RefinedMeasurement hatch_filter(const RefinedMeasurement& raw_m) const;
+
+    Date date;
     GPSHandler handler;
-
-    std::vector<State> true_states;
-    std::vector<SolutionState> solution_states;
-    std::vector<RawMeasurementGroupped> raw_measurements_groupped;
-    std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
-    std::vector<AccelerationMeasurement> acceleration_measurements;
-
     Logger logger;
 
+    std::vector<State> true_states;
+    std::vector<RawMeasurementGroupped> raw_measurements_groupped;
+    std::vector<AccelerationMeasurement> acceleration_measurements;
+    std::vector<SolutionState> solution_states;
+    std::vector<RefinedMeasurementGroupped> refined_measurements_groupped;
+
     IntendedError error = IntendedError::NONE;
-
-    const double c = 2.99792458e8;
-    const double earth_rotation_rate = 7.2921151467e-5;
-    const double C1 = 2.54572778016;
-    const double C2 = -1.54572778016;
-    const double CN0_constant = 3.01029995664;
-
-    const Matrix E3 = identity(3);
-    const Matrix Omega = {{{0, earth_rotation_rate, 0}, 
-                            {-earth_rotation_rate, 0, 0}, 
-                            {0, 0, 0}}};
-
-
-    const double GDOP0 = 10;
-    const double mask_angle = 10;
-    
-    const unsigned fadeout_threshold = 30;
-    const double CN0_min_threshold = 35;
-    const double CN0_max_threshold = 60;
-
-    const double hatch_constant = 2;
-
-    const double solution_tolerance = 0.1;
 };

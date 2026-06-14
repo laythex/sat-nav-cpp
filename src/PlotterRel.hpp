@@ -1,14 +1,12 @@
 #pragma once
 
-#include <fstream>
 #include <cstdlib>
+#include <format>
+#include <fstream>
 
 #include <string>
 
-#include "LinAlg.hpp"
 #include "SatNav.hpp"
-
-// Объединить в один класс через темплейт?
 
 class PlotterRel {
 public:
@@ -26,6 +24,6 @@ private:
     SatNavRel problem;
 
     char sep = ',';
-    
-    unsigned time_initial_, time_final_;
+
+    unsigned ti, tf;
 };

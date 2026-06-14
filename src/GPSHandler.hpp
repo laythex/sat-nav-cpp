@@ -2,9 +2,9 @@
 
 #include <cmath>
 
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 #include <iostream>
 
@@ -14,13 +14,13 @@ class GPSHandler {
 
 public:
     GPSHandler(const Date& date);
-    
-    double get_clock_error(unsigned prn_id, double gps_time);
-    double get_relativistic_error(unsigned prn_id, double gps_time);
-    State get_state(unsigned prn_id, double gps_time);
+
+    double get_clock_error(unsigned prn_id, double gps_time) const;
+    double get_relativistic_error(unsigned prn_id, double gps_time) const;
+    State get_state(unsigned prn_id, double gps_time) const;
 
 private:
-    const Ephemeris& select_ephemeris(unsigned prn_id, double t_sv);
+    const Ephemeris& select_ephemeris(unsigned prn_id, double t_sv) const;
 
     static double gps_to_sv(double gps_time);
 

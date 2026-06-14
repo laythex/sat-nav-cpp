@@ -1,20 +1,20 @@
 #include "PlotterRel.hpp"
 
-PlotterRel::PlotterRel(const SatNavRel& sn, unsigned time_initial, unsigned time_final) : problem(sn), time_initial_(time_initial), time_final_(time_final) {
-    problem.solve_relative('0', time_initial_, time_final_);
+PlotterRel::PlotterRel(const SatNavRel& sn, unsigned ti, unsigned tf) : problem(sn), ti(ti), tf(tf) {
+    problem.solve(ti, tf);
 }
 
 void PlotterRel::plot_errors_norm(double ymin, double ymax) {
-    std::string filename = "rel-errors-norm";
+    std::string filename = "rel-errors-norm-" + to_string(problem.pas.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
     file << "Модуль ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
-    
+
     for (const auto& ss : problem.get_solution_states()) {
-        if (ss.status != SolutionStatus::OK) continue;
+        if (ss.status != SolutionStatusRel::OK) continue;
 
         unsigned time = ss.time;
 
@@ -22,8 +22,8 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
-        double error_norm = abs(ts.position - ss.position);
-        
+        double error_norm = (ts.position - ss.position).norm();
+
         file << time << sep << error_norm << std::endl;
     }
 
@@ -40,9 +40,9 @@ void PlotterRel::plot_errors_proj(double ymin, double ymax) {
     file << "Проекция ошибки" << '\t' << "Время, с" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
-    
+
     for (const auto& ss : problem.get_solution_states()) {
-        if (ss.status != SolutionStatus::OK) continue;
+        if (ss.status != SolutionStatusRel::OK) continue;
 
         unsigned time = ss.time;
 
@@ -50,8 +50,8 @@ void PlotterRel::plot_errors_proj(double ymin, double ymax) {
         if (ts_it == problem.get_true_states().end()) continue;
         State ts = *ts_it;
 
-        std::vector<double> error = ts.position - ss.position;
-        
+        Eigen::Vector3d error = ts.position - ss.position;
+
         file << time << sep << error[0] << sep << error[1] << sep << error[2] << std::endl;
     }
 
@@ -61,19 +61,19 @@ void PlotterRel::plot_errors_proj(double ymin, double ymax) {
 }
 
 void PlotterRel::plot_true_norm(double ymin, double ymax) {
-    std::string filename = "true-norm";
+    std::string filename = "true-norm-" + to_string(problem.pas.get_date());
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Расстояние между аппаратами" << '\t' << "Время, с" << '\t' << "Расстояние, м" << std::endl;
+    file << "Расстояние между аппаратами" << '\t' << "Время, с" << '\t' << "Расстояние, км" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
     for (const auto& ts : problem.get_true_states()) {
         unsigned time = ts.time;
-        double true_norm = abs(ts.position);
-        
-        file << time << sep << true_norm << std::endl;
+        double true_norm = ts.position.norm();
+
+        file << time << sep << true_norm * 1.0e-3 << std::endl;
     }
 
     file.close();
@@ -89,10 +89,10 @@ void PlotterRel::plot_true_proj(double ymin, double ymax) { // Сделать л
     file << "Расстояние между аппаратами вдоль осей" << '\t' << "Время, с" << '\t' << "Расстояние, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << 'x' << '\t' << 'y' << '\t' << 'z' << std::endl;
-    
+
     for (const auto& ts : problem.get_true_states()) {
         unsigned time = ts.time;
-        
+
         file << time << sep << ts.position[0] << sep << ts.position[1] << sep << ts.position[2] << std::endl;
     }
 
@@ -117,5 +117,5 @@ std::vector<double> PlotterRel::ECEF_to_geographical(const std::vector<double>& 
     longitude = atan2(x, y) * 180.0 * M_1_PI;
     latitude = asin(z / r) * 180.0 * M_1_PI;
 
-    return {longitude, latitude};  
+    return {longitude, latitude};
 }

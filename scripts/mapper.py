@@ -13,7 +13,7 @@ with open(data_path) as header:
 
 plot_path = f'../plots/{args[1]}-{mode}.png'
 
-data = pd.read_csv(data_path, skiprows=2)
+data = pd.read_csv(data_path, skiprows=2, header=None)
 
 plt.figure(figsize=(7.5, 4))
 

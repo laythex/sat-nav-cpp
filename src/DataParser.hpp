@@ -2,13 +2,13 @@
 
 #include <iostream>
 
+#include <Eigen/Dense>
+#include <cmath>
+#include <format>
 #include <fstream>
 #include <iomanip>
-
 #include <string>
 #include <vector>
-#include <format>
-#include <cmath>
 
 #include "Structures.hpp"
 
@@ -20,7 +20,7 @@ public:
     static std::vector<State> load_grace_gnv_data(const Date& date, GRACE sat);
     static std::vector<RawMeasurementGroupped> load_grace_gps_data(const Date& date, GRACE sat);
     static std::vector<AccelerationMeasurement> load_grace_acc_data(const Date& date, GRACE sat);
-    
+
     static std::vector<State> load_swarm_nav_data(const Date& date, SWARM sat);
     static std::vector<RawMeasurementGroupped> load_swarm_gps_data(const Date& date, SWARM sat);
 
@@ -28,7 +28,8 @@ public:
 
 private:
     static unsigned grace_to_gps_time(unsigned grace_time);
-    static unsigned date_to_gps_time(unsigned year, unsigned month, unsigned day, unsigned hours, unsigned minutes, unsigned seconds);
+    static unsigned date_to_gps_time(unsigned year, unsigned month, unsigned day, unsigned hours, unsigned minutes,
+                                     unsigned seconds);
 
     static std::string date_to_grace_string(const Date& date);
     static std::string date_to_swarm_string(const Date& date);
@@ -39,8 +40,7 @@ private:
 
     static double convert_SNR_to_CN0(double SNR);
 
-    template <typename T>
-    static T bytes_to_T_endian(const char* bytes, T);
+    template <typename T> static T bytes_to_T_endian(const char* bytes, T);
 
     static inline std::string grace_gnv_dir = "../data/grace/gnv/";
     static inline std::string grace_gps_dir = "../data/grace/gps/";
@@ -53,8 +53,7 @@ private:
     static inline unsigned day_seconds_count = 86400;
 };
 
-template <typename T>
-T DataParser::bytes_to_T_endian(const char* bytes, T) {
+template <typename T> T DataParser::bytes_to_T_endian(const char* bytes, T) {
     size_t n = sizeof(T);
     T result{};
 

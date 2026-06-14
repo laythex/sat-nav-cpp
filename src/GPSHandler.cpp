@@ -1,10 +1,8 @@
 #include "GPSHandler.hpp"
 
-GPSHandler::GPSHandler(const Date& date) {
-    ephemeris = DataParser::load_brdc_data(date);
-}
+GPSHandler::GPSHandler(const Date& date) { ephemeris = DataParser::load_brdc_data(date); }
 
-double GPSHandler::get_clock_error(unsigned prn_id, double time) {
+double GPSHandler::get_clock_error(unsigned prn_id, double time) const {
     double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
@@ -12,7 +10,7 @@ double GPSHandler::get_clock_error(unsigned prn_id, double time) {
     return eph.a_f0 + eph.a_f1 * t + eph.a_f2 * t * t;
 }
 
-double GPSHandler::get_relativistic_error(unsigned prn_id, double time) {
+double GPSHandler::get_relativistic_error(unsigned prn_id, double time) const {
     double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
@@ -30,7 +28,7 @@ double GPSHandler::get_relativistic_error(unsigned prn_id, double time) {
     return -F * eph.e * eph.A_sqrt * sin(E);
 }
 
-State GPSHandler::get_state(unsigned prn_id, double time) {
+State GPSHandler::get_state(unsigned prn_id, double time) const {
     double t_sv = gps_to_sv(time);
     const Ephemeris& eph = select_ephemeris(prn_id, t_sv);
 
@@ -72,21 +70,20 @@ State GPSHandler::get_state(unsigned prn_id, double time) {
     double r_dot = eph.e * A * E_dot * sin(E) + 2 * nu_dot * (eph.C_rs * cos(2 * Phi) - eph.C_rc * sin(2 * Phi));
 
     double Omega_k_dot = eph.Omega_dot - Omega_e_dot;
-    
+
     double x_prime_dot = r_dot * cos(u) - r * u_dot * sin(u);
     double y_prime_dot = r_dot * sin(u) + r * u_dot * cos(u);
 
-    double vx = -x_prime * Omega_k_dot * sin(Omega) + x_prime_dot * cos(Omega) - y_prime_dot * sin(Omega) * cos(i) - 
+    double vx = -x_prime * Omega_k_dot * sin(Omega) + x_prime_dot * cos(Omega) - y_prime_dot * sin(Omega) * cos(i) -
                 y_prime * (Omega_k_dot * cos(Omega) * cos(i) - i_dot * sin(Omega) * sin(i));
-    double vy = x_prime * Omega_k_dot * cos(Omega) + x_prime_dot * sin(Omega) + y_prime_dot * cos(Omega) * cos(i) - 
+    double vy = x_prime * Omega_k_dot * cos(Omega) + x_prime_dot * sin(Omega) + y_prime_dot * cos(Omega) * cos(i) -
                 y_prime * (Omega_k_dot * sin(Omega) * cos(i) + i_dot * cos(Omega) * sin(i));
     double vz = y_prime_dot * sin(i) + y_prime * i_dot * cos(i);
 
     return {0, {x, y, z}, {vx, vy, vz}};
 }
 
-const Ephemeris &GPSHandler::select_ephemeris(unsigned prn_id, double t_sv)
-{
+const Ephemeris& GPSHandler::select_ephemeris(unsigned prn_id, double t_sv) const {
     unsigned prn_index = prn_id - 1;
     size_t n = ephemeris[prn_index].size();
 
