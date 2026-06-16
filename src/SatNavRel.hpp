@@ -45,7 +45,7 @@ private:
 
     std::pair<Eigen::VectorXd, Eigen::MatrixXd> form_measurements(const KalmanState& ks,
                                                                   const KalmanState& ks_prev) const;
-    Eigen::VectorXd form_state(const KalmanState& ks, const KalmanState& ks_prev) const;
+    Eigen::VectorXd form_state(const KalmanState& ks_prev, double dt) const;
 
     std::vector<State> true_states;
     std::vector<StandaloneData> standalone_datas;

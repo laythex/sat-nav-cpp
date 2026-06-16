@@ -61,9 +61,11 @@ SolutionState SatNav::find_solution(const RawMeasurementGroupped& raw_mg) {
     double GDOP;
     double dt_ASN = 0.0;
     Eigen::Vector3d X = Eigen::Vector3d::Zero();
+    double residual = -1.0;
 
-    Eigen::VectorXd U(n);
-    Eigen::MatrixX4d B(n, 4);
+    Eigen::Index ne = static_cast<Eigen::Index>(n);
+    Eigen::VectorXd U(ne);
+    Eigen::MatrixX4d B(ne, 4);
 
     while (true) {
         for (size_t i = 0; i < n; ++i) {
@@ -99,14 +101,17 @@ SolutionState SatNav::find_solution(const RawMeasurementGroupped& raw_mg) {
         Eigen::Vector3d dX_X = dX.head<3>();
         double dX_dt_ASN = dX[3] / Constants::c;
 
-        double delta = dX_X.norm() + std::abs(dX_dt_ASN - dt_ASN) * Constants::c;
-        if (delta < Config::solution_tolerance) break;
-
         X += dX_X;
         dt_ASN = dX_dt_ASN;
+
+        Eigen::MatrixXd In = Eigen::MatrixXd::Identity(ne, ne);
+        residual = ((In - B * B1 * B.transpose()) * U).norm();
+
+        double delta = dX_X.norm() + std::abs(dX_dt_ASN - dt_ASN) * Constants::c;
+        if (delta < Config::solution_tolerance) break;
     }
 
-    SolutionState ss = {{raw_mg.time, X}, SolutionStatus::OK, GDOP, dt_ASN * Constants::c};
+    SolutionState ss = {{raw_mg.time, X}, SolutionStatus::OK, GDOP, dt_ASN * Constants::c, residual};
 
     for (size_t i = 0; i < n; ++i) {
         size_t prn_index = present_prns[i] - 1;

@@ -15,6 +15,8 @@ struct KalmanState {
     Eigen::Vector3d r_pas = Eigen::Vector3d::Zero();
     Eigen::Vector3d dr_pas = Eigen::Vector3d::Zero();
 
+    Eigen::Vector3d r_act = Eigen::Vector3d::Zero();
+
     std::vector<bool> gps_mask = std::vector<bool>(32, false);
     std::vector<double> zeta1i_groupped = std::vector<double>(32, 0.0);
     std::vector<double> zeta2i_groupped = std::vector<double>(32, 0.0);

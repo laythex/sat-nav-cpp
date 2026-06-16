@@ -13,9 +13,16 @@ namespace SatNavUtils {
     double delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv);
 
     Eigen::Vector3d acceleration(const Eigen::Vector3d& rv);
+    Eigen::Vector3d acceleration_rel(const Eigen::Vector3d& Rv, const Eigen::Vector3d rv_pas);
 
-    DiscreteState step_inc(const DiscreteState& s, double dt);
-    DiscreteState step_inc_rel(const DiscreteState& s_rel, const Eigen::Vector3d rv_pas, double dt);
+    DiscreteState step_inc(const DiscreteState& s, double dt, double k = 1.0);
+    DiscreteState step_inc_rel(const DiscreteState& s_rel, const Eigen::Vector3d rv_pas, double dt, double k = 1.0);
+
+    State step_rk4(const State& s, double dt);
+    State step_rk4_rel(const State& s_rel, const State& rv_pas, double dt);
+
+    Eigen::VectorXd rhs_rk4(const Eigen::VectorXd& s);
+    Eigen::VectorXd rhs_rk4_rel(const Eigen::VectorXd& s_rel, const Eigen::Vector3d& rv_pas);
 
     Eigen::Matrix3d G(const Eigen::Vector3d& rv);
     Eigen::MatrixXd iF(const Eigen::Matrix3d& G, double dt);

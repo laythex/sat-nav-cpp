@@ -15,4 +15,10 @@ public:
     inline static double solution_tolerance;
 
     inline static bool use_kf;
+    inline static double residual_threshold;
+    inline static double residual_rel_threshold;
+    inline static double lambda_r;
+    inline static double lambda_v;
+    inline static double lambda_model;
+    inline static double trace_threshold;
 };

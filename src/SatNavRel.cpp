@@ -51,7 +51,7 @@ void SatNavRel::solve() {
         State ts = *get_true_state_iterator(data.time);
         logger.logv("Status", solution.status);
         logger.logv("Error", (solution.position - ts.position).norm());
-        if ((solution.position - ts.position).norm() > 5.0) {
+        if ((solution.position - ts.position).norm() > 1.5 && solution.status == SolutionStatusRel::OK) {
             logger.log("High error");
         }
         logger.lnbr();
@@ -87,7 +87,6 @@ SolutionStateRel SatNavRel::find_solution_ls(const StandaloneData& data) {
         double pr_pas = data.pas.prs_L1[prn_index];
         double pr_act = data.act.prs_L1[prn_index];
         double pr_difference = pr_act - pr_pas;
-
         Eigen::Vector3d Svn = Sv.normalized();
 
         Eigen::Index ie = static_cast<Eigen::Index>(i);
@@ -105,9 +104,6 @@ SolutionStateRel SatNavRel::find_solution_ls(const StandaloneData& data) {
 
     Eigen::Matrix3d C1 = lu.inverse();
     Eigen::Vector3d X = C1 * C.transpose() * U;
-
-    // double sigma2 = U.transpose() * (Eigen::MatrixXd::Identity(U.size(), U.size()) - C * C1 * C.transpose()) * U;
-    // std::cout << sigma2 << std::endl;
 
     return {{data.time, X}, SolutionStatusRel::OK};
 }
@@ -127,48 +123,64 @@ SolutionStateRel SatNavRel::find_solution_kf(const StandaloneData& data) {
     KalmanState ks;
     const KalmanState& ks_prev = kalman_states.back();
     ks.time = data.time;
+    ks.fill_measurements(data);
+
+    double res_max = std::max(data.pas.residual, data.act.residual);
+    logger.logv("res max", res_max);
+    Eigen::MatrixXd lambda(6, 6);
+    lambda << Constants::I3 * Config::lambda_r, Eigen::Matrix3d::Zero(), Eigen::Matrix3d::Zero(),
+        Constants::I3 * Config::lambda_v;
 
     SolutionStatusRel status;
-    if (!data.is_fully_solved()) {
-        logger.log("Model step");
+    if (!data.is_fully_solved() || res_max > Config::residual_threshold) {
         DiscreteState s_pas = SatNavUtils::step_inc(ks_prev.get_dstate_pas(), ks.time - ks_prev.time);
         ks.r_pas = s_pas.position;
         ks.dr_pas = s_pas.increment;
-        status = SolutionStatusRel::DEFAULT;
+        status = SolutionStatusRel::MODEL_STEP;
+        lambda *= Config::lambda_model;
     } else {
-        logger.log("Complete step");
         ks.r_pas = data.pas.position;
         ks.dr_pas = ks.r_pas - ks_prev.r_pas;
         status = SolutionStatusRel::OK;
     }
 
-    ks.fill_measurements(data);
+    Eigen::VectorXd xi_hat = form_state(ks_prev, ks.time - ks_prev.time);
+    Eigen::Matrix3d G = SatNavUtils::G(ks_prev.r_pas);
+    Eigen::MatrixXd iF = SatNavUtils::iF(G, ks.time - ks_prev.time);
 
     auto measurements = form_measurements(ks, ks_prev);
     Eigen::VectorXd zeta = measurements.first;
     Eigen::MatrixXd D = measurements.second;
+    Eigen::VectorXd zeta_hat = D * xi_hat;
     Eigen::Index m2 = zeta.size();
 
-    Eigen::VectorXd xi_hat = form_state(ks, ks_prev);
-    Eigen::VectorXd zeta_hat = D * xi_hat;
+    Eigen::FullPivLU<Eigen::MatrixXd> lu(D.transpose() * D);
+    if (!lu.isInvertible()) {
+        status = SolutionStatusRel::MODEL_STEP;
+    } else {
+        Eigen::MatrixXd D1 = lu.inverse();
+        Eigen::MatrixXd Im2 = Eigen::MatrixXd::Identity(m2, m2);
+        double res_xi = ((Im2 - D * D1 * D.transpose()) * zeta).norm();
+        double res_zeta = res_xi;
+        logger.logv("res zeta", res_zeta);
+        logger.logv("trace", D1.trace());
+        if (res_zeta > Config::residual_rel_threshold || D1.trace() > Config::trace_threshold) {
+            status = SolutionStatusRel::MODEL_STEP;
+        }
+    }
 
-    Eigen::MatrixXd Im2 = Eigen::MatrixXd::Identity(m2, m2);
-    Eigen::Matrix3d G = SatNavUtils::G(ks_prev.r_pas);
-    Eigen::MatrixXd iF = SatNavUtils::iF(G, ks.time - ks_prev.time);
+    double ir = 0.0;
+    if (status == SolutionStatusRel::OK) {
+        ir = 1.0;
+    }
 
-    double lambda = 0.5;
-
-    ks.W = iF.transpose() * ks_prev.W * iF * lambda + D.transpose() * D;
-    Eigen::VectorXd xi_star = xi_hat + ks.W.inverse() * D.transpose() * (zeta - zeta_hat);
-
-    Eigen::VectorXd ls_error =
-        ((D.transpose() * D).inverse() * D.transpose() * zeta).head(3) - get_true_state_iterator(data.time)->position;
-    logger.logv("m", m2 / 2);
-    logger.logv("d_zeta", (zeta - zeta_hat).norm());
-    logger.logv("ls error", ls_error.norm());
+    ks.W = iF.transpose() * lambda * ks_prev.W * lambda * iF + D.transpose() * D * ir;
+    Eigen::VectorXd xi_star = xi_hat + ks.W.inverse() * D.transpose() * (zeta - zeta_hat) * ir;
 
     ks.R = xi_star.head(3);
     ks.dR = xi_star.tail(3);
+
+    logger.logv("m", m2 / 2);
 
     kalman_states.push_back(ks);
 
@@ -213,17 +225,29 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> SatNavRel::form_measurements(const K
 
     Eigen::Index me = static_cast<Eigen::Index>(m);
     Eigen::VectorXd zeta(me * 2);
-    zeta << zeta1, zeta2 - zeta2_prev - (C - C_prev) * ks_prev.R;
     Eigen::MatrixXd D(me * 2, 6);
+    zeta << zeta1, zeta2 - zeta2_prev - (C - C_prev) * ks_prev.R;
     D << C, Eigen::MatrixX3d::Zero(me, 3), Eigen::MatrixX3d::Zero(me, 3), C;
 
     return {zeta, D};
 }
 
-Eigen::VectorXd SatNavRel::form_state(const KalmanState& ks, const KalmanState& ks_prev) const {
-    DiscreteState s_rel = SatNavUtils::step_inc_rel(ks_prev.get_dstate_rel(), ks_prev.r_pas, ks.time - ks_prev.time);
+Eigen::VectorXd SatNavRel::form_state(const KalmanState& ks_prev, double dt) const {
+    State s_pas_ph = {ks_prev.time - 5, ks_prev.r_pas - ks_prev.dr_pas * 0.5, ks_prev.dr_pas / dt};
+    State s_rel_ph = {ks_prev.time - 5, ks_prev.R - ks_prev.dR * 0.5, ks_prev.dR / dt};
+
+    Eigen::Vector3d vv_prev = SatNavUtils::step_rk4(s_pas_ph, 5.0).velocity;
+    Eigen::Vector3d Vv_prev = SatNavUtils::step_rk4_rel(s_rel_ph, s_pas_ph, 5.0).velocity;
+
+    State s_pas_prev = {ks_prev.time, ks_prev.r_pas, vv_prev};
+    State s_rel_prev = {ks_prev.time, ks_prev.R, Vv_prev};
+
+    State s_rel_h = SatNavUtils::step_rk4_rel(s_rel_prev, s_pas_prev, dt * 0.5);
+    State s_rel = SatNavUtils::step_rk4_rel(s_rel_prev, s_pas_prev, dt);
+
     Eigen::VectorXd xi(6);
-    xi << s_rel.position, s_rel.increment;
+    xi << s_rel.position, s_rel_h.velocity * dt;
+
     return xi;
 }
 

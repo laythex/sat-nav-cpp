@@ -9,13 +9,13 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
 
     file << "Модуль ошибки" << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
-    file << std::endl;
+    file << "Измерения" << '\t' << "Модель" << std::endl;
 
     unsigned t0 = problem.get_solution_states().front().time;
     for (const auto& ss : problem.get_solution_states()) {
-        if (ss.status != SolutionStatusRel::OK) continue;
+        if (ss.status != SolutionStatusRel::OK && ss.status != SolutionStatusRel::MODEL_STEP) continue;
 
-        double time = (ss.time - t0) / 60.0;
+        double time = (ss.time - t0) / 3600.0;
 
         auto ts_it = problem.get_true_state_iterator(ss.time);
         if (ts_it == problem.get_true_states().end()) continue;
@@ -23,7 +23,11 @@ void PlotterRel::plot_errors_norm(double ymin, double ymax) {
 
         double error_norm = (ts.position - ss.position).norm();
 
-        file << time << sep << error_norm << std::endl;
+        if (ss.status == SolutionStatusRel::OK) {
+            file << time << sep << error_norm << sep << -1.0 << std::endl;
+        } else if (ss.status == SolutionStatusRel::MODEL_STEP) {
+            file << time << sep << -1.0 << sep << error_norm << std::endl;
+        }
     }
 
     file.close();
@@ -70,7 +74,7 @@ void PlotterRel::plot_true_norm(double ymin, double ymax) {
 
     unsigned t0 = problem.get_true_states().front().time;
     for (const auto& ts : problem.get_true_states()) {
-        double time = (ts.time - t0) / 60.0;
+        double time = (ts.time - t0) / 3600.0;
         double true_norm = ts.position.norm();
 
         file << time << sep << true_norm * 1.0e-3 << std::endl;

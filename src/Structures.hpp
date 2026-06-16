@@ -4,6 +4,8 @@
 #include <format>
 #include <vector>
 
+#include "Constants.hpp"
+
 enum class GRACE : char { A = 'A', B = 'B', C = 'C', D = 'D' };
 
 enum class SWARM : char { A = 'A', B = 'B', C = 'C' };
@@ -43,21 +45,6 @@ struct DiscreteState {
     Eigen::Vector3d increment = Eigen::Vector3d::Zero();
 };
 
-struct SolutionState : State {
-    SolutionStatus status = SolutionStatus::DEFAULT;
-    double GDOP = 0.0;
-    double dt_ASN_c = 0.0;
-
-    std::vector<bool> gps_mask = std::vector<bool>(32, false);
-    std::vector<State> gps_states = std::vector<State>(32);
-    std::vector<double> prs_L1 = std::vector<double>(32, 0.0);
-    std::vector<double> cps_L1 = std::vector<double>(32, 0.0);
-};
-
-struct SolutionStateRel : State {
-    SolutionStatusRel status = SolutionStatusRel::DEFAULT;
-};
-
 struct RawMeasurement {
     bool is_present = false;
     unsigned time = 0;
@@ -91,6 +78,28 @@ struct RefinedMeasurementGroupped {
     std::vector<RefinedMeasurement> measurements = std::vector<RefinedMeasurement>(32);
 };
 
+struct AccelerationMeasurement {
+    unsigned time = 0;
+    std::vector<double> linear_acceleration = std::vector<double>(3, 0.0);
+    std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
+};
+
+struct SolutionState : State {
+    SolutionStatus status = SolutionStatus::DEFAULT;
+    double GDOP = 0.0;
+    double dt_ASN_c = 0.0;
+    double residual = 0.0;
+
+    std::vector<bool> gps_mask = std::vector<bool>(32, false);
+    std::vector<State> gps_states = std::vector<State>(32);
+    std::vector<double> prs_L1 = std::vector<double>(32, 0.0);
+    std::vector<double> cps_L1 = std::vector<double>(32, 0.0);
+};
+
+struct SolutionStateRel : State {
+    SolutionStatusRel status = SolutionStatusRel::DEFAULT;
+};
+
 struct StandaloneData {
     unsigned time = 0;
     SolutionState pas;
@@ -98,12 +107,6 @@ struct StandaloneData {
 
     bool is_fully_solved() const;
     bool is_fully_present_at(size_t prn_id) const;
-};
-
-struct AccelerationMeasurement {
-    unsigned time = 0;
-    std::vector<double> linear_acceleration = std::vector<double>(3, 0.0);
-    std::vector<double> angular_acceleration = std::vector<double>(3, 0.0);
 };
 
 constexpr char to_char(GRACE sat) { return static_cast<char>(sat); }

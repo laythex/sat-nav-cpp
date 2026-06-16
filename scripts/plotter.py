@@ -21,8 +21,8 @@ data = pd.read_csv(data_path, skiprows=3, header=None)
 # ls = ['--', '-', '--', '-']
 
 for i in range(1, data.shape[1]):
-    plt.plot(data.iloc[:, 0], data.iloc[:, i], label='' if not has_legend else legend_labels[i - 1])
-    plt.scatter(data.iloc[:, 0], data.iloc[:, i], s=3)
+    # plt.plot(data.iloc[:, 0], data.iloc[:, i], label='' if not has_legend else legend_labels[i - 1])
+    plt.scatter(data.iloc[:, 0], data.iloc[:, i], s=3, label='' if not has_legend else legend_labels[i - 1])
 
 y_lim = y_min != 0 or y_max != 0
 y_min = y_min if y_lim else None
@@ -37,6 +37,5 @@ plt.ylabel(y_label)
 plt.title(title)
 
 if has_legend: 
-    plt.legend()
-plt.legend(loc='upper left') 
+    plt.legend(loc='upper left') 
 plt.savefig(plot_path, dpi=300)

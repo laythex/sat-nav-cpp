@@ -21,20 +21,82 @@ Eigen::Vector3d SatNavUtils::acceleration(const Eigen::Vector3d& rv) {
     return a1 + a2;
 }
 
-DiscreteState SatNavUtils::step_inc(const DiscreteState& s, double dt) {
-    Eigen::Vector3d Av = acceleration(s.position);
-    Eigen::Vector3d drv = Av * dt * dt + (Constants::I3 - 2.0 * Constants::Omega * dt) * s.increment -
-                          Constants::Omega2 * dt * dt * s.position;
-    Eigen::Vector3d rv = s.position + drv;
-    return {s.time + static_cast<unsigned>(dt), rv, drv};
+Eigen::Vector3d SatNavUtils::acceleration_rel(const Eigen::Vector3d& Rv, const Eigen::Vector3d rv_pas) {
+    return acceleration(rv_pas + Rv) - acceleration(rv_pas);
 }
 
-DiscreteState SatNavUtils::step_inc_rel(const DiscreteState& s_rel, const Eigen::Vector3d rv_pas, double dt) {
-    Eigen::Vector3d Av = acceleration(rv_pas + s_rel.position) - acceleration(rv_pas);
-    Eigen::Vector3d dRv = Av * dt * dt + (Constants::I3 - 2.0 * Constants::Omega * dt) * s_rel.increment -
+DiscreteState SatNavUtils::step_inc(const DiscreteState& s, double dt, double k) {
+    Eigen::Vector3d Av = acceleration(s.position);
+    Eigen::Vector3d drv = Av * dt * dt + (Constants::I3 - 2.0 * Constants::Omega * dt) * s.increment * k -
+                          Constants::Omega2 * dt * dt * s.position;
+    Eigen::Vector3d rv = s.position + drv;
+    return {s.time + static_cast<unsigned>(dt), rv, drv / k};
+}
+
+DiscreteState SatNavUtils::step_inc_rel(const DiscreteState& s_rel, const Eigen::Vector3d rv_pas, double dt, double k) {
+    Eigen::Vector3d Av = acceleration_rel(s_rel.position, rv_pas);
+    Eigen::Vector3d dRv = Av * dt * dt + (Constants::I3 - 2.0 * Constants::Omega * dt) * s_rel.increment * k -
                           Constants::Omega2 * dt * dt * s_rel.position;
     Eigen::Vector3d Rv = s_rel.position + dRv;
-    return {s_rel.time + static_cast<unsigned>(dt), Rv, dRv};
+    return {s_rel.time + static_cast<unsigned>(dt), Rv, dRv / k};
+}
+
+State SatNavUtils::step_rk4(const State& s, double dt) {
+    Eigen::VectorXd sv(6);
+    sv << s.position, s.velocity;
+
+    Eigen::VectorXd k1 = rhs_rk4(sv);
+    Eigen::VectorXd k2 = rhs_rk4(sv + k1 * dt / 2.0);
+    Eigen::VectorXd k3 = rhs_rk4(sv + k2 * dt / 2.0);
+    Eigen::VectorXd k4 = rhs_rk4(sv + k3 * dt);
+
+    sv = sv + dt / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+
+    return {s.time + static_cast<unsigned>(dt), sv.head(3), sv.tail(3)};
+}
+
+State SatNavUtils::step_rk4_rel(const State& s_rel, const State& s_pas, double dt) {
+    Eigen::VectorXd sv(6);
+    sv << s_rel.position, s_rel.velocity;
+
+    Eigen::Vector3d rv_pas_1 = s_pas.position;
+    Eigen::Vector3d rv_pas_2 = step_rk4(s_pas, dt / 2.0).position;
+    Eigen::Vector3d rv_pas_4 = step_rk4(s_pas, dt).position;
+
+    Eigen::VectorXd k1 = rhs_rk4_rel(sv, rv_pas_1);
+    Eigen::VectorXd k2 = rhs_rk4_rel(sv + k1 * dt / 2.0, rv_pas_2);
+    Eigen::VectorXd k3 = rhs_rk4_rel(sv + k2 * dt / 2.0, rv_pas_2);
+    Eigen::VectorXd k4 = rhs_rk4_rel(sv + k3 * dt, rv_pas_4);
+
+    sv = sv + dt / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+
+    return {s_rel.time + static_cast<unsigned>(dt), sv.head(3), sv.tail(3)};
+}
+
+Eigen::VectorXd SatNavUtils::rhs_rk4(const Eigen::VectorXd& s) {
+    Eigen::Vector3d rv = s.head<3>();
+    Eigen::Vector3d vv = s.tail<3>();
+    Eigen::Vector3d av = acceleration(rv);
+
+    double ax_ni = 2.0 * Constants::omega * vv[1] + Constants::omega * Constants::omega * rv[0];
+    double ay_ni = -2.0 * Constants::omega * vv[0] + Constants::omega * Constants::omega * rv[1];
+
+    Eigen::VectorXd res_sv(6);
+    res_sv << vv[0], vv[1], vv[2], av[0] + ax_ni, av[1] + ay_ni, av[2];
+    return res_sv;
+}
+
+Eigen::VectorXd SatNavUtils::rhs_rk4_rel(const Eigen::VectorXd& s_rel, const Eigen::Vector3d& rv_pas) {
+    Eigen::Vector3d Rv = s_rel.head<3>();
+    Eigen::Vector3d Vv = s_rel.tail<3>();
+    Eigen::Vector3d Av = acceleration_rel(Rv, rv_pas);
+
+    double ax_ni = 2.0 * Constants::omega * Vv[1] + Constants::omega * Constants::omega * Rv[0];
+    double ay_ni = -2.0 * Constants::omega * Vv[0] + Constants::omega * Constants::omega * Rv[1];
+
+    Eigen::VectorXd res_sv(6);
+    res_sv << Vv[0], Vv[1], Vv[2], Av[0] + ax_ni, Av[1] + ay_ni, Av[2];
+    return res_sv;
 }
 
 Eigen::Matrix3d SatNavUtils::G(const Eigen::Vector3d& rv) {

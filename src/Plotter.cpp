@@ -15,7 +15,7 @@ void Plotter::plot_errors_norm(double ymin, double ymax) {
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatus::OK) continue;
 
-        double time = (ss.time - t0) / 60.0;
+        double time = (ss.time - t0) / 3600.0;
 
         auto ts_it = problem.get_true_state_iterator(ss.time);
         if (ts_it == problem.get_true_states().end()) continue;
@@ -54,7 +54,7 @@ void Plotter::plot_errors_pr(double ymin, double ymax) {
 
     unsigned t0 = problem.get_refined_measurements_groupped().front().time;
     for (const auto& ref_mg : problem.get_refined_measurements_groupped()) {
-        double time = (ref_mg.time - t0) / 60.0;
+        double time = (ref_mg.time - t0) / 3600.0;
 
         auto ts_it = problem.get_true_state_iterator(ref_mg.time);
         if (ts_it == problem.get_true_states().end()) continue;
@@ -159,7 +159,7 @@ void Plotter::plot_errors_proj_by_type(IntendedError error, double ymin, double 
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatus::OK) continue;
 
-        double time = (ss.time - t0) / 60.0;
+        double time = (ss.time - t0) / 3600.0;
 
         auto ss_copy_it = sn.get_solution_state_iterator(ss.time);
         if (ss_copy_it == sn.get_solution_states().end()) continue;
@@ -203,7 +203,7 @@ void Plotter::plot_errors_pr_by_type(IntendedError error, double ymin, double ym
 
     unsigned t0 = problem.get_refined_measurements_groupped().front().time;
     for (const auto& ref_mg : sn.get_refined_measurements_groupped()) {
-        double time = (ref_mg.time - t0) / 60.0;
+        double time = (ref_mg.time - t0) / 3600.0;
 
         auto ts_copy_it = sn.get_true_state_iterator(ref_mg.time);
         if (ts_copy_it == sn.get_true_states().end()) continue;
