@@ -136,7 +136,7 @@ Eigen::MatrixXd SatNavUtils::iF(const Eigen::Matrix3d& G, double dt) {
     return iF;
 }
 
-double SatNavUtils::delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv) {
+double SatNavUtils::delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv, bool use3) {
     double a = av.norm();
     double x = xv.norm();
     double ax = av.dot(xv);
@@ -148,7 +148,7 @@ double SatNavUtils::delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv) 
     double d2 = 0.5 * (x * x * ia - ax * ax * ia3);
     double d3 = 0.5 * (ax * ax * ax * ia5 - ax * x * x * ia3);
 
-    return d2 + d3;
+    return d2 + d3 * use3;
 }
 
 Eigen::VectorXd SatNavUtils::shifted_difference(const Eigen::VectorXd& v) {

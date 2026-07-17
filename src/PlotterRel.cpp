@@ -1,6 +1,6 @@
 #include "PlotterRel.hpp"
 
-PlotterRel::PlotterRel(const SatNavRel& sn) : problem(sn) { problem.solve(); }
+PlotterRel::PlotterRel(const SatNavRel& sn) : problem(sn), problem_copy(sn) { problem.solve(IntendedError::NONE); }
 
 void PlotterRel::plot_errors_norm(double ymin, double ymax) {
     std::string filename = "rel-errors-norm-" + to_string(problem.pas.get_date());
@@ -98,6 +98,43 @@ void PlotterRel::plot_true_proj(double ymin, double ymax) { // Сделать л
         unsigned time = ts.time;
 
         file << time << sep << ts.position[0] << sep << ts.position[1] << sep << ts.position[2] << std::endl;
+    }
+
+    file.close();
+
+    run_py_plotter(filename);
+}
+
+void PlotterRel::plot_errors_norm_by_type(IntendedError error, double ymin, double ymax) {
+    SatNavRel sn = problem_copy;
+    sn.solve(error);
+
+    std::string filename = "rel-errors-norm-" + to_filename(error) + "-" + to_string(problem.pas.get_date());
+    std::ofstream file;
+    file.open("../results/" + filename + ".csv", std::fstream::out);
+
+    file << "Исследуемая ошибка: " + to_title(error) << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
+    file << ymin << '\t' << ymax << std::endl;
+    file << std::endl;
+
+    unsigned t0 = problem.get_solution_states().front().time;
+    for (const auto& ss : problem.get_solution_states()) {
+        if (ss.status != SolutionStatusRel::OK) continue;
+
+        unsigned time = ss.time;
+
+        auto ss_copy_it = sn.get_solution_state_iterator(time);
+        if (ss_copy_it == sn.get_solution_states().end()) continue;
+        SolutionStateRel ss_copy = *ss_copy_it;
+
+        if (ss_copy.status != SolutionStatusRel::OK) continue;
+
+        State ts = *problem.get_true_state_iterator(time);
+
+        // double error_norm = (ss_copy.position - ss.position).norm();
+
+        file << (time - t0) / 3600.0 << sep << (ss.position - ts.position).norm() << sep
+             << (ss_copy.position - ts.position).norm() << std::endl;
     }
 
     file.close();

@@ -111,6 +111,10 @@ SolutionState SatNav::find_solution(const RawMeasurementGroupped& raw_mg) {
         if (delta < Config::solution_tolerance) break;
     }
 
+    if (residual > Config::residual_threshold && error == IntendedError::NONE) {
+        return {{raw_mg.time}, SolutionStatus::DEFAULT};
+    }
+
     SolutionState ss = {{raw_mg.time, X}, SolutionStatus::OK, GDOP, dt_ASN * Constants::c, residual};
 
     for (size_t i = 0; i < n; ++i) {

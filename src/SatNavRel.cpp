@@ -34,7 +34,9 @@ void SatNavRel::form_standalone_data() {
     }
 }
 
-void SatNavRel::solve() {
+void SatNavRel::solve(IntendedError error) {
+    this->error = error;
+
     solve_standalones();
     form_true_states();
     form_standalone_data();
@@ -45,7 +47,12 @@ void SatNavRel::solve() {
     for (const StandaloneData& data : standalone_datas) {
         logger.logv("Time", data.time);
 
-        SolutionStateRel solution = Config::use_kf ? find_solution_kf(data) : find_solution_ls(data);
+        SolutionStateRel solution;
+        if (Config::use_kf && error != IntendedError::KALMAN) {
+            solution = find_solution_kf(data);
+        } else {
+            solution = find_solution_ls(data);
+        }
         solution_states.push_back(solution);
 
         State ts = *get_true_state_iterator(data.time);
@@ -82,7 +89,11 @@ SolutionStateRel SatNavRel::find_solution_ls(const StandaloneData& data) {
         Eigen::Vector3d Xv = data.act.position - data.pas.position;
         Eigen::Vector3d Yv = data.act.gps_states[prn_index].position - data.pas.gps_states[prn_index].position;
 
-        double delta = SatNavUtils::delta(Sv, Xv - Yv);
+        if (error == IntendedError::GAMMA) {
+            Yv = Eigen::Vector3d::Zero();
+        }
+
+        double delta = SatNavUtils::delta(Sv, Xv - Yv, error != IntendedError::DELTA3);
 
         double pr_pas = data.pas.prs_L1[prn_index];
         double pr_act = data.act.prs_L1[prn_index];
@@ -104,6 +115,13 @@ SolutionStateRel SatNavRel::find_solution_ls(const StandaloneData& data) {
 
     Eigen::Matrix3d C1 = lu.inverse();
     Eigen::Vector3d X = C1 * C.transpose() * U;
+
+    Eigen::Index ne = static_cast<Eigen::Index>(n);
+    Eigen::MatrixXd In = Eigen::MatrixXd::Identity(ne, ne);
+    double residual = ((In - C * C1 * C.transpose()) * U).norm();
+    if (residual > Config::residual_rel_threshold && error == IntendedError::NONE) {
+        return {{data.time}, SolutionStatusRel::DEFAULT};
+    }
 
     return {{data.time, X}, SolutionStatusRel::OK};
 }
@@ -144,7 +162,8 @@ SolutionStateRel SatNavRel::find_solution_kf(const StandaloneData& data) {
         status = SolutionStatusRel::OK;
     }
 
-    Eigen::VectorXd xi_hat = form_state(ks_prev, ks.time - ks_prev.time);
+    Eigen::VectorXd xi_hat = Config::use_rk4 ? form_state_rk4(ks_prev, ks.time - ks_prev.time)
+                                             : form_state_inc(ks_prev, ks.time - ks_prev.time);
     Eigen::Matrix3d G = SatNavUtils::G(ks_prev.r_pas);
     Eigen::MatrixXd iF = SatNavUtils::iF(G, ks.time - ks_prev.time);
 
@@ -232,7 +251,17 @@ std::pair<Eigen::VectorXd, Eigen::MatrixXd> SatNavRel::form_measurements(const K
     return {zeta, D};
 }
 
-Eigen::VectorXd SatNavRel::form_state(const KalmanState& ks_prev, double dt) const {
+Eigen::VectorXd SatNavRel::form_state_inc(const KalmanState& ks_prev, double dt) const {
+    DiscreteState s_rel_prev = ks_prev.get_dstate_rel();
+    DiscreteState s_rel = SatNavUtils::step_inc_rel(s_rel_prev, ks_prev.r_pas, dt);
+
+    Eigen::VectorXd xi(6);
+    xi << s_rel.position, s_rel.increment;
+
+    return xi;
+}
+
+Eigen::VectorXd SatNavRel::form_state_rk4(const KalmanState& ks_prev, double dt) const {
     State s_pas_ph = {ks_prev.time - 5, ks_prev.r_pas - ks_prev.dr_pas * 0.5, ks_prev.dr_pas / dt};
     State s_rel_ph = {ks_prev.time - 5, ks_prev.R - ks_prev.dR * 0.5, ks_prev.dR / dt};
 
@@ -275,4 +304,26 @@ std::vector<State>::const_iterator SatNavRel::get_true_state_iterator(unsigned t
     }
 
     return true_states.cend();
+}
+
+std::vector<SolutionStateRel>::const_iterator SatNavRel::get_solution_state_iterator(unsigned time) const {
+    size_t n = solution_states.size();
+
+    std::ptrdiff_t low = 0;
+    std::ptrdiff_t high = static_cast<std::ptrdiff_t>(n) - 1;
+    while (low <= high) {
+        std::ptrdiff_t mid = low + (high - low) / 2;
+
+        if (solution_states[static_cast<size_t>(mid)].time == time) {
+            return solution_states.cbegin() + mid;
+        }
+
+        if (solution_states[static_cast<size_t>(mid)].time < time) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    return solution_states.cend();
 }

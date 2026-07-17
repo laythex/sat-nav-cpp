@@ -16,7 +16,20 @@ enum class SolutionStatus { DEFAULT, OK, SINGULAR_B1, HIGH_GDOP };
 
 enum class SolutionStatusRel { DEFAULT, OK, NO_STANDALONE, INITIALIZING, MODEL_STEP, SINGULAR_C1 };
 
-enum class IntendedError { NONE, QUALITY_FLAG, NOISY, GPS_CLOCK, IONOSPHERIC, RELATIVISTIC, SAGNAC, HATCH, GDOP };
+enum class IntendedError {
+    NONE,
+    QUALITY_FLAG,
+    NOISY,
+    GPS_CLOCK,
+    IONOSPHERIC,
+    RELATIVISTIC,
+    SAGNAC,
+    HATCH,
+    GDOP,
+    DELTA3,
+    GAMMA,
+    KALMAN
+};
 
 struct Date {
     unsigned year;
@@ -131,8 +144,8 @@ constexpr std::string to_string(SolutionStatusRel status) {
 }
 
 constexpr std::string to_filename(IntendedError status) {
-    constexpr const char* messages[] = {"none",         "qualflg", "noisy", "gps-clock", "ionopheric",
-                                        "relativistic", "sagnac",  "hatch", "gdop"};
+    constexpr const char* messages[] = {"none",   "qualflg", "noisy", "gps-clock", "ionospheric", "relativistic",
+                                        "sagnac", "hatch",   "gdop",  "delta3",    "gamma",       "kalman"};
     return messages[static_cast<int>(status)];
 }
 
@@ -145,7 +158,10 @@ constexpr std::string to_title(IntendedError status) {
                                         "релятивистская поправка",
                                         "эффект Саньяка",
                                         "хатч-фильтр",
-                                        "GDOP"};
+                                        "GDOP",
+                                        "delta3",
+                                        "gamma",
+                                        "kalman"};
     return messages[static_cast<int>(status)];
 }
 

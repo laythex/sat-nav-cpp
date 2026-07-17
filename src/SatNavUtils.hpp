@@ -10,7 +10,7 @@
 namespace SatNavUtils {
     double ionofree(double l1, double l2);
 
-    double delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv);
+    double delta(const Eigen::Vector3d& av, const Eigen::Vector3d& xv, bool use3 = true);
 
     Eigen::Vector3d acceleration(const Eigen::Vector3d& rv);
     Eigen::Vector3d acceleration_rel(const Eigen::Vector3d& Rv, const Eigen::Vector3d rv_pas);

@@ -21,4 +21,5 @@ public:
     inline static double lambda_v;
     inline static double lambda_model;
     inline static double trace_threshold;
+    inline static double use_rk4;
 };

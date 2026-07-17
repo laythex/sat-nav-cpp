@@ -118,10 +118,11 @@ void Plotter::plot_errors_norm_by_type(IntendedError error, double ymin, double 
     std::ofstream file;
     file.open("../results/" + filename + ".csv", std::fstream::out);
 
-    file << "Исследуемая ошибка: " + to_title(error) << '\t' << "Время, с" << '\t' << "Вклад, м" << std::endl;
+    file << "Исследуемая ошибка: " + to_title(error) << '\t' << "Время, ч" << '\t' << "Ошибка, м" << std::endl;
     file << ymin << '\t' << ymax << std::endl;
     file << std::endl;
 
+    unsigned t0 = problem.get_solution_states().front().time;
     for (const auto& ss : problem.get_solution_states()) {
         if (ss.status != SolutionStatus::OK) continue;
 
@@ -133,9 +134,12 @@ void Plotter::plot_errors_norm_by_type(IntendedError error, double ymin, double 
 
         if (ss_copy.status != SolutionStatus::OK) continue;
 
-        double error_norm = (ss_copy.position - ss.position).norm();
+        State ts = *problem.get_true_state_iterator(time);
 
-        file << time << sep << error_norm << std::endl;
+        // double error_norm = (ss_copy.position - ss.position).norm();
+
+        file << (time - t0) / 3600.0 << sep << (ss.position - ts.position).norm() << sep
+             << (ss_copy.position - ts.position).norm() << std::endl;
     }
 
     file.close();

@@ -20,12 +20,13 @@ public:
     SatNavRel(SatNav& passive, SatNav& active);
     SatNavRel(const SatNavRel& sn);
 
-    void solve();
+    void solve(IntendedError error = IntendedError::NONE);
 
     const std::vector<State>& get_true_states() const;
     const std::vector<SolutionStateRel>& get_solution_states() const;
 
     std::vector<State>::const_iterator get_true_state_iterator(unsigned time) const;
+    std::vector<SolutionStateRel>::const_iterator get_solution_state_iterator(unsigned time) const;
 
     // Перенести в приват
     SatNav& pas;
@@ -45,7 +46,9 @@ private:
 
     std::pair<Eigen::VectorXd, Eigen::MatrixXd> form_measurements(const KalmanState& ks,
                                                                   const KalmanState& ks_prev) const;
-    Eigen::VectorXd form_state(const KalmanState& ks_prev, double dt) const;
+
+    Eigen::VectorXd form_state_rk4(const KalmanState& ks_prev, double dt) const;
+    Eigen::VectorXd form_state_inc(const KalmanState& ks_prev, double dt) const;
 
     std::vector<State> true_states;
     std::vector<StandaloneData> standalone_datas;
@@ -53,4 +56,6 @@ private:
     std::vector<KalmanState> kalman_states;
 
     Logger logger;
+
+    IntendedError error = IntendedError::NONE;
 };

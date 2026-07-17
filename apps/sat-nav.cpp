@@ -16,50 +16,38 @@ int main() {
     Config::tf = 86400;
 
     Config::GDOP0 = 10.0;
-    Config::CN0_min_threshold = 20.0;
+    Config::CN0_min_threshold = 25.0;
     Config::CN0_max_threshold = 60.0;
     Config::fadein_threshold = 60;
     Config::hatch_constant = 1 / 10.0;
     Config::solution_tolerance = 0.1;
-
-    Config::use_kf = true;
-    Config::residual_threshold = 2.5;
+    Config::residual_threshold = 1.5;
     Config::residual_rel_threshold = 10.0;
-    Config::lambda_r = 0.99;
-    Config::lambda_v = 0.99;
-    Config::lambda_model = 0.85;
-    Config::trace_threshold = 30;
 
-    // Date date = {2005, 12, 10}; GRACE sat = GRACE::A;
-    // Date date = {2005, 12, 10}; GRACE sat = GRACE::B;
+    // Date date = {2005, 12, 10};
+    // Date date = {2005, 12, 10};
     // Date date = {2019, 10, 21};
-    // Date date = {2020, 5, 20}; GRACE sat = GRACE::C;
-    // Date date = {2021, 3, 30}; GRACE sat = GRACE::C;
-    // Date date = {2022, 9, 18}; GRACE sat = GRACE::C;
-    // Date date = {2023, 3, 23};
-    // Date date = {2024, 4, 3}; GRACE sat = GRACE::C;
+    // Date date = {2020, 5, 20};
+    // Date date = {2021, 3, 30};
+    // Date date = {2022, 9, 18};
+    Date date = {2023, 3, 23};
+    // Date date = {2024, 4, 3};
+    // Date date = {2024, 10, 1};
 
-    // GRACE sat = GRACE::C;
+    GRACE sat = GRACE::C;
 
-    // GPSHandler handler = GPSHandler(date);
-    // SatNav problem = SatNav(date, sat, handler);
+    GPSHandler handler = GPSHandler(date);
+    SatNav problem = SatNav(date, sat, handler);
 
-    // double m = 10;
-    // Plotter plotter(problem);
-    // plotter.plot_errors_norm(0, m);
-    // plotter.plot_errors_pr(-m, m);
+    double m = 10;
+    Plotter plotter(problem);
+    plotter.plot_errors_norm(0, m);
 
-    // double n = 40;
-    // plotter.plot_errors_proj_by_type(IntendedError::RELATIVISTIC, -n, n);
-    // plotter.plot_errors_pr_by_type(IntendedError::RELATIVISTIC, -n, n);
-    // plotter.plot_errors_proj_by_type(IntendedError::IONOSPHERIC, -n, n);
-    // plotter.plot_errors_pr_by_type(IntendedError::IONOSPHERIC, -n, n);
-    // plotter.plot_errors_proj_by_type(IntendedError::SAGNAC, -n, n);
-    // plotter.plot_errors_pr_by_type(IntendedError::SAGNAC, -n, n);
-    // plotter.plot_errors_proj_by_type(IntendedError::NOISY, -n, n);
-    // plotter.plot_errors_pr_by_type(IntendedError::NOISY, -n, n);
-    // plotter.plot_errors_proj_by_type(IntendedError::HATCH, -n, n);
-    // plotter.plot_errors_pr_by_type(IntendedError::HATCH, -n, n);
+    // plotter.plot_errors_norm_by_type(IntendedError::RELATIVISTIC, 0.0, 30.0);
+    // plotter.plot_errors_norm_by_type(IntendedError::IONOSPHERIC, 0.0, 30.0);
+    // plotter.plot_errors_norm_by_type(IntendedError::SAGNAC, 0.0, 50.0);
+    // plotter.plot_errors_norm_by_type(IntendedError::NOISY, 0.0, 10.0);
+    // plotter.plot_errors_norm_by_type(IntendedError::HATCH, 0.0, 10.0);
 
     // GPSHandler handler = GPSHandler("brdc0600.26n");
     // SatNav problem = SatNav("20260301", SWARM::A, handler);
@@ -69,38 +57,6 @@ int main() {
     // Plotter plotter(problem, 0, 86400);
     // plotter.plot_errors_pr(-10, 10);
     // plotter.plot_errors_norm(0, 10);
-
-    Date date = {2005, 12, 10};
-    GPSHandler handler = GPSHandler(date);
-    SatNav problem1 = SatNav(date, GRACE::A, handler);
-    SatNav problem2 = SatNav(date, GRACE::B, handler);
-
-    // Date date = {2023, 3, 23};
-    // GPSHandler handler = GPSHandler(date);
-    // SatNav problem1 = SatNav(date, GRACE::C, handler);
-    // SatNav problem2 = SatNav(date, GRACE::D, handler);
-
-    SatNavRel problem_rel(problem1, problem2);
-    PlotterRel plotter(problem_rel);
-
-    double m = 5;
-    plotter.plot_errors_norm(0, m);
-    // plotter.plot_errors_proj(-m, m);
-    // plotter.plot_true_norm();
-
-    // Date date = {2026, 3, 1};
-    // GPSHandler handler = GPSHandler(date);
-    // SatNav problem1 = SatNav(date, SWARM::C, handler);
-    // SatNav problem2 = SatNav(date, SWARM::A, handler);
-
-    // SatNavRel problem_rel(problem1, problem2);
-    // PlotterRel plotter(problem_rel, 1000, 4000);
-
-    // double m = 0;
-    // plotter.plot_errors_norm(0, m);
-    // plotter.plot_errors_proj(-m, m);
-    // plotter.plot_true_norm();
-    // plotter.plot_true_proj();
 
     return 0;
 }
